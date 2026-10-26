@@ -7,14 +7,13 @@ namespace Finansist.Core.ViewModels;
 public partial class SettingsViewModel(AppViewModel appState, IBankImportStore imports, IImportNavigation navigation) : FinanceScreenViewModel
 {
     public AppViewModel AppState { get; } = appState;
-    [ObservableProperty] private string importLabel = "Банковские уведомления";
-    [ObservableProperty] private string importStatus = "Настройте сбор и проверяйте найденные операции здесь.";
+    public string ImportLabel => "Настроить сбор";
+    [ObservableProperty] private string importStatus = "Выберите банк и разрешите доступ к его уведомлениям.";
     [RelayCommand] private Task RefreshAsync() => RunAsync(async () =>
     {
         if (!AppState.IsReady) await AppState.InitializeCommand.ExecuteAsync(null);
-        var snapshot = await imports.ReadImportsAsync();
-        ImportLabel = snapshot.Pending.Count > 0 ? $"Банковские уведомления · {snapshot.Pending.Count} на проверку" : "Банковские уведомления";
-        ImportStatus = snapshot.Settings.SourceName is { } source ? $"{source} · сбор {(snapshot.Settings.Enabled ? "включён" : "выключен")}" : "Выберите ВБРР Онлайн и разрешите доступ к уведомлениям.";
+        var settings = await imports.ReadImportSettingsAsync();
+        ImportStatus = settings.SourceName is { } source ? $"{source} · сбор {(settings.Enabled ? "включён" : "выключен")}" : "Выберите ВБРР Онлайн и разрешите доступ к уведомлениям.";
     });
-    [RelayCommand] private Task ImportInboxAsync() => RunAsync(navigation.OpenInboxAsync);
+    [RelayCommand] private Task ImportSettingsAsync() => RunAsync(navigation.OpenSettingsAsync);
 }

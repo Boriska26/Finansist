@@ -9,6 +9,7 @@ namespace Finansist.Core.ViewModels;
 public interface IImportNavigation
 {
     Task OpenInboxAsync();
+    Task OpenSettingsAsync();
     Task<bool> TryOpenInboxAsync();
     Task CloseInboxAsync();
     Task ReviewAsync(string candidateId);
@@ -16,27 +17,15 @@ public interface IImportNavigation
     Task<bool> ConfirmAsync(string title, string message);
 }
 public sealed record PendingImportRow(string Id, string Title, string Details);
-public partial class ImportInboxViewModel(IBankImportStore store, INotificationAccess access, IImportNavigation navigation) : FinanceScreenViewModel
+public partial class ImportInboxViewModel(IBankImportStore store, IImportNavigation navigation) : FinanceScreenViewModel
 {
-    private ImportSettings settings = new();
     public ObservableCollection<PendingImportRow> Rows { get; } = [];
-    [ObservableProperty] private string sourceStatus = "Выберите приложение ВБРР Онлайн.";
-    [ObservableProperty] private string accessStatus = "";
-    [ObservableProperty] private string toggleLabel = "Включить сбор";
     [ObservableProperty] private string queueStatus = "";
     [ObservableProperty] private bool isEmpty = true;
-    [ObservableProperty] private bool needsAccess;
-    [ObservableProperty] private bool hasSource;
     [RelayCommand] private Task RefreshAsync() => RunAsync(LoadAsync);
     private async Task LoadAsync()
     {
-        var snapshot = await store.ReadImportsAsync(); settings = snapshot.Settings;
-        HasSource = settings.PackageId is not null;
-        SourceStatus = settings.SourceName is null ? "Выберите приложение ВБРР Онлайн." : $"Источник: {settings.SourceName}\nСбор {(settings.Enabled ? "включён" : "выключен")}.";
-        NeedsAccess = !access.IsGranted;
-        AccessStatus = NeedsAccess ? "Доступ Android к уведомлениям пока не разрешён." : "Доступ Android к уведомлениям разрешён.";
-        if (access.HasCaptureError) AccessStatus += "\nВо время сбора была ошибка. Проверьте свободное место и доступ; часть push могла не сохраниться.";
-        ToggleLabel = settings.Enabled ? "Приостановить сбор" : "Включить сбор";
+        var snapshot = await store.ReadImportsAsync();
         Rows.Clear();
         foreach (var row in snapshot.Pending)
         {
@@ -50,20 +39,6 @@ public partial class ImportInboxViewModel(IBankImportStore store, INotificationA
         await store.MarkImportsSeenAsync(snapshot.Pending.Select(row => row.Candidate.Id).ToArray());
     }
     [RelayCommand] private Task LaterAsync() => RunAsync(navigation.CloseInboxAsync);
-    [RelayCommand] private Task ChooseSourceAsync() => RunAsync(async () =>
-    {
-        var apps = await access.GetBankAppsAsync();
-        if (apps.Count == 0) throw new FinanceValidationException("ВБРР Онлайн не найден среди установленных приложений. Проверьте установку банка в этом профиле Android.");
-        var source = await navigation.ChooseSourceAsync(apps);
-        if (source is null) return;
-        await store.ConfigureImportAsync(source, true); await LoadAsync();
-    });
-    [RelayCommand] private Task ToggleAsync() => RunAsync(async () =>
-    {
-        if (settings.PackageId is null) throw new FinanceValidationException("Сначала выберите ВБРР Онлайн.");
-        await store.ConfigureImportAsync(new(settings.PackageId, settings.SourceName!), !settings.Enabled); await LoadAsync();
-    });
-    [RelayCommand] private Task GrantAccessAsync() => RunAsync(access.OpenSettingsAsync);
     [RelayCommand] private Task ReviewAsync(PendingImportRow row) => RunAsync(() => navigation.ReviewAsync(row.Id));
     [RelayCommand] private Task DismissAsync(PendingImportRow row) => RunAsync(async () =>
     {

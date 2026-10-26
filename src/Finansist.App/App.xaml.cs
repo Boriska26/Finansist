@@ -24,6 +24,8 @@ public partial class App : Application
             await services.GetRequiredService<Finansist.Core.ViewModels.SettingsViewModel>().RefreshCommand.ExecuteAsync(null);
             if (shell.CurrentPage is Views.ImportInboxPage)
                 await services.GetRequiredService<Finansist.Core.ViewModels.ImportInboxViewModel>().RefreshCommand.ExecuteAsync(null);
+            if (shell.CurrentPage is Views.BankImportSettingsPage)
+                await services.GetRequiredService<Finansist.Core.ViewModels.BankImportSettingsViewModel>().RefreshCommand.ExecuteAsync(null);
             await review.CheckNewCommand.ExecuteAsync(null);
         });
         return window;

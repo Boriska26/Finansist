@@ -9,6 +9,14 @@ namespace Finansist.App.Services;
 public sealed class ImportNavigation(IServiceProvider services) : IImportNavigation
 {
     private bool opening;
+    public async Task OpenSettingsAsync()
+    {
+        var shell = Shell.Current;
+        if (opening || shell is null || shell.CurrentPage is not SettingsPage || shell.Navigation.ModalStack.Count != 0) return;
+        opening = true;
+        try { await shell.Navigation.PushAsync(new BankImportSettingsPage(services.GetRequiredService<BankImportSettingsViewModel>())); }
+        finally { opening = false; }
+    }
     public async Task OpenInboxAsync() => _ = await TryOpenInboxAsync();
     public async Task<bool> TryOpenInboxAsync()
     {

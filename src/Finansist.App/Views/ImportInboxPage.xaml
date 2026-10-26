@@ -1,21 +1,16 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
  xmlns:vm="clr-namespace:Finansist.Core.ViewModels;assembly=Finansist.Core" xmlns:views="clr-namespace:Finansist.App.Views"
- x:Class="Finansist.App.Views.ImportInboxPage" x:Name="Page" x:DataType="vm:ImportInboxViewModel" Title="Банковские уведомления" Shell.NavBarIsVisible="True" SafeAreaEdges="Container">
+ x:Class="Finansist.App.Views.ImportInboxPage" x:Name="Page" x:DataType="vm:ImportInboxViewModel" Title="Найденные операции" Shell.NavBarIsVisible="True" SafeAreaEdges="Container">
  <Grid RowDefinitions="*,Auto">
   <CollectionView ItemsSource="{Binding Rows}" SelectionMode="None">
    <CollectionView.Header><VerticalStackLayout Padding="20" Spacing="14">
-    <Label Text="Проверим найденные операции" Style="{StaticResource Title}" />
-    <Label Text="До подтверждения деньги и бюджет не меняются. Счёт предлагается по первому счёту в вашем списке; при проверке можно выбрать другой." Style="{StaticResource Muted}" />
+    <Label Text="Проверка операций" Style="{StaticResource Title}" />
+    <Label Text="Проверьте сумму, счёт и тип операции. Деньги учитываются после подтверждения." Style="{StaticResource Muted}" />
     <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />
     <Border IsVisible="{Binding HasError}"><Label Text="{Binding ErrorMessage}" /></Border>
-    <Label Text="{Binding SourceStatus}" /><Label Text="{Binding AccessStatus}" />
-    <Button Text="Выбрать ВБРР Онлайн" Command="{Binding ChooseSourceCommand}" IsEnabled="{Binding IsIdle}" Style="{StaticResource Secondary}" />
-    <Button Text="Разрешить доступ к уведомлениям" Command="{Binding GrantAccessCommand}" IsVisible="{Binding NeedsAccess}" IsEnabled="{Binding IsIdle}" />
-    <Button Text="{Binding ToggleLabel}" Command="{Binding ToggleCommand}" IsVisible="{Binding HasSource}" IsEnabled="{Binding IsIdle}" Style="{StaticResource Secondary}" />
-    <Label Text="Собираются только новые push выбранного банка после включения. Старую историю внутри банковского приложения прочитать нельзя. SMS в этой версии не подключены." Style="{StaticResource Muted}" />
     <Label Text="{Binding QueueStatus}" Style="{StaticResource Section}" />
-    <Label Text="Пока ничего не найдено. После настройки дождитесь нового уведомления банка и обновите список." IsVisible="{Binding IsEmpty}" Style="{StaticResource Muted}" />
+    <Label Text="Нет операций на проверку. Новые уведомления появятся здесь после получения." IsVisible="{Binding IsEmpty}" Style="{StaticResource Muted}" />
    </VerticalStackLayout></CollectionView.Header>
    <CollectionView.ItemTemplate><DataTemplate x:DataType="vm:PendingImportRow">
     <Border Margin="20,0,20,12" Padding="16"><VerticalStackLayout Spacing="10">

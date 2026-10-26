@@ -10,7 +10,7 @@
   <Border><VerticalStackLayout Spacing="10">
    <Label Text="Банковские уведомления" Style="{StaticResource Section}" />
    <Label Text="{Binding ImportStatus}" Style="{StaticResource Muted}" />
-   <Button Text="{Binding ImportLabel}" Command="{Binding ImportInboxCommand}" IsEnabled="{Binding IsIdle}" />
+   <Button Text="{Binding ImportLabel}" Command="{Binding ImportSettingsCommand}" IsEnabled="{Binding IsIdle}" />
   </VerticalStackLayout></Border>
   <Border><VerticalStackLayout Spacing="10"><Label Text="Данные на устройстве" Style="{StaticResource Section}" /><Label Text="{Binding AppState.StorageStatus}" Style="{StaticResource Muted}" /><Label Text="Приложение работает без интернета. Серверная синхронизация появится на этапе 6." Style="{StaticResource Muted}" /><Label Text="Удаление приложения удалит локальные данные. Резервное копирование пока не реализовано." Style="{StaticResource Muted}" /></VerticalStackLayout></Border>
   <Border><VerticalStackLayout Spacing="12"><Label Text="Оформление" Style="{StaticResource Section}" /><Label Text="{Binding AppState.ThemeStatus, StringFormat='Выбрано: {0}'}" Style="{StaticResource Muted}" SemanticProperties.Description="Текущая тема приложения" />
@@ -21,7 +21,7 @@
    </VerticalStackLayout>
    <Label Text="Выбор сохраняется автоматически в SQLite." Style="{StaticResource Muted}" />
   </VerticalStackLayout></Border>
-  <Label Text="Финансист · 0.4.5
+  <Label Text="Финансист · 0.4.6
 Этап 4 · Android" Style="{StaticResource Muted}" HorizontalTextAlignment="Center" />
  </VerticalStackLayout></ScrollView>
 </ContentPage>

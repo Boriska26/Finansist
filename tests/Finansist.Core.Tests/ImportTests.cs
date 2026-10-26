@@ -223,18 +223,91 @@ public sealed class ImportTests : IDisposable
         Assert.Equal("2", check.Scalar("SELECT COUNT(*) FROM accounts"));
     }
     [Fact]
-    public async Task SettingsShowsPendingCounterAndOpensNotificationInbox()
+    public async Task SettingsOpensCollectionSetupAndLeavesPendingImportsUnseen()
     {
         await Setup(); var item = await Capture(); var navigation = new ImportNavigation();
         var appState = new AppViewModel(Store(), new TestTheme());
         var vm = new SettingsViewModel(appState, Store(), navigation);
         await vm.RefreshCommand.ExecuteAsync(null);
-        Assert.True(appState.IsReady); Assert.Contains("1 на проверку", vm.ImportLabel);
+        Assert.True(appState.IsReady); Assert.Equal("Настроить сбор", vm.ImportLabel);
         Assert.Contains(Source.Name, vm.ImportStatus);
-        await vm.ImportInboxCommand.ExecuteAsync(null); Assert.Equal(1, navigation.Opens);
+        await vm.ImportSettingsCommand.ExecuteAsync(null); Assert.Equal(1, navigation.SettingsOpens); Assert.Equal(0, navigation.Opens);
+        Assert.Empty(await Store().ReadSeenImportIdsAsync());
         await Store().DismissImportAsync(item.Id); await vm.RefreshCommand.ExecuteAsync(null);
-        Assert.Equal("Банковские уведомления", vm.ImportLabel);
+        Assert.Equal("Настроить сбор", vm.ImportLabel);
     }
+    [Fact]
+    public async Task PausingCollectorKeepsPendingOperationsAvailableForReview()
+    {
+        await Setup(); var item = await Capture(); var nav = new ImportNavigation();
+        var settings = new BankImportSettingsViewModel(Store(), new Access(), nav);
+        await settings.RefreshCommand.ExecuteAsync(null);
+        Assert.True(settings.HasSource); Assert.False(settings.NeedsAccess);
+        Assert.Equal("Приостановить сбор", settings.ToggleLabel);
+        await settings.ToggleCommand.ExecuteAsync(null);
+        Assert.False((await Store().ReadImportSettingsAsync()).Enabled);
+        Assert.Equal("Включить сбор", settings.ToggleLabel);
+        Assert.Empty(await Store().ReadSeenImportIdsAsync());
+        var queue = new ImportInboxViewModel(Store(), nav);
+        await queue.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal(item.Id, Assert.Single(queue.Rows).Id);
+        Assert.Contains(item.Id, await Store().ReadSeenImportIdsAsync());
+        Assert.Empty((await Store().ReadFinanceAsync()).Operations);
+        await settings.ToggleCommand.ExecuteAsync(null);
+        Assert.True((await Store().ReadImportSettingsAsync()).Enabled);
+        Assert.Single((await Store().ReadImportsAsync()).Pending);
+    }
+
+    [Fact]
+    public async Task CollectionAndMainSettingsReadOnlyConfigurationAndNeverAccessQueue()
+    {
+        await Setup(); await Capture(); var nav = new ImportNavigation();
+        var store = new PausingStore(Store()) { ForbidQueueReads = true };
+        var settings = new BankImportSettingsViewModel(store, new Access(), nav);
+        await settings.RefreshCommand.ExecuteAsync(null);
+        var main = new SettingsViewModel(new AppViewModel(Store(), new TestTheme()), store, nav);
+        await main.RefreshCommand.ExecuteAsync(null);
+        Assert.False(main.HasError); Assert.False(settings.HasError);
+        Assert.Contains(Source.Name, main.ImportStatus); Assert.Contains(Source.Name, settings.SourceStatus);
+        Assert.Empty(await Store().ReadSeenImportIdsAsync());
+        Assert.Equal(0, nav.Opens);
+    }
+
+    [Fact]
+    public async Task AccessStatusRefreshesAfterReturningFromAndroidSettings()
+    {
+        await Setup(); var access = new Access { IsGranted = false, HasCaptureError = true };
+        var vm = new BankImportSettingsViewModel(Store(), access, new ImportNavigation());
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.True(vm.NeedsAccess); Assert.Contains("ошибка", vm.AccessStatus);
+        await vm.GrantAccessCommand.ExecuteAsync(null); Assert.Equal(1, access.SettingsRequests);
+        access.IsGranted = true; access.HasCaptureError = false;
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.False(vm.NeedsAccess); Assert.Contains("разрешён", vm.AccessStatus); Assert.DoesNotContain("ошибка", vm.AccessStatus);
+    }
+
+    [Fact]
+    public async Task SourceSelectionHandlesMissingAppsCancellationAndSuccessfulSetup()
+    {
+        var access = new Access(); var nav = new ImportNavigation();
+        var vm = new BankImportSettingsViewModel(Store(), access, nav);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.False(vm.HasSource);
+        await vm.ToggleCommand.ExecuteAsync(null); Assert.True(vm.HasError);
+        await vm.ChooseSourceCommand.ExecuteAsync(null); Assert.True(vm.HasError);
+        Assert.Null((await Store().ReadImportSettingsAsync()).PackageId);
+        access.Apps = [Source];
+        await vm.ChooseSourceCommand.ExecuteAsync(null);
+        Assert.False(vm.HasError); Assert.False(vm.HasSource);
+        nav.SelectedSource = Source;
+        await vm.ChooseSourceCommand.ExecuteAsync(null);
+        Assert.True(vm.HasSource); Assert.False(vm.HasError);
+        Assert.Equal(Source.PackageId, (await Store().ReadImportSettingsAsync()).PackageId);
+        Assert.True((await Store().ReadImportSettingsAsync()).Enabled);
+        Assert.Empty((await Store().ReadImportsAsync()).Pending);
+        Assert.Empty((await Store().ReadFinanceAsync()).Accounts);
+    }
+
     [Fact]
     public async Task NewImportsOpenOnceAndLaterLeavesPendingAcrossReopen()
     {
@@ -244,7 +317,7 @@ public sealed class ImportTests : IDisposable
         Assert.Equal(1, nav.Opens); Assert.True(review.HasPending); Assert.Contains("1", review.ButtonText);
         // Navigation alone never acknowledges data: only the displayed inbox does.
         Assert.Empty(await Store().ReadSeenImportIdsAsync());
-        var inbox = new ImportInboxViewModel(Store(), new Access(), nav);
+        var inbox = new ImportInboxViewModel(Store(), nav);
         await inbox.RefreshCommand.ExecuteAsync(null);
         await inbox.LaterCommand.ExecuteAsync(null);
         Assert.Equal(1, nav.Closes); Assert.Contains(item.Id, await Store().ReadSeenImportIdsAsync());
@@ -319,23 +392,27 @@ public sealed class ImportTests : IDisposable
 
     private sealed class Access : INotificationAccess
     {
-        public bool IsGranted => true;
-        public bool HasCaptureError => false;
-        public Task<IReadOnlyList<NotificationSource>> GetBankAppsAsync() => Task.FromResult<IReadOnlyList<NotificationSource>>([]);
-        public Task OpenSettingsAsync() => Task.CompletedTask;
+        public bool IsGranted { get; set; } = true;
+        public bool HasCaptureError { get; set; }
+        public int SettingsRequests { get; private set; }
+        public IReadOnlyList<NotificationSource> Apps { get; set; } = [];
+        public Task<IReadOnlyList<NotificationSource>> GetBankAppsAsync() => Task.FromResult(Apps);
+        public Task OpenSettingsAsync() { SettingsRequests++; return Task.CompletedTask; }
     }
     private sealed class PausingStore(IBankImportStore inner) : IBankImportStore
     {
         private bool pause = true;
+        public bool ForbidQueueReads { get; set; }
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public async Task<ImportSnapshot> ReadImportsAsync()
         {
+            if (ForbidQueueReads) throw new InvalidOperationException("Synthetic: configuration must not read the queue.");
             if (pause) { pause = false; Started.SetResult(); await Release.Task; }
             return await inner.ReadImportsAsync();
         }
-        public Task<IReadOnlySet<string>> ReadSeenImportIdsAsync() => inner.ReadSeenImportIdsAsync();
-        public Task MarkImportsSeenAsync(IReadOnlyList<string> ids) => inner.MarkImportsSeenAsync(ids);
+        public Task<IReadOnlySet<string>> ReadSeenImportIdsAsync() => ForbidQueueReads ? throw new InvalidOperationException("Synthetic: configuration must not read seen IDs.") : inner.ReadSeenImportIdsAsync();
+        public Task MarkImportsSeenAsync(IReadOnlyList<string> ids) => ForbidQueueReads ? throw new InvalidOperationException("Synthetic: configuration must not acknowledge queue.") : inner.MarkImportsSeenAsync(ids);
         public Task<ImportSettings> ReadImportSettingsAsync() => inner.ReadImportSettingsAsync();
         public Task ConfigureImportAsync(NotificationSource source, bool enabled) => inner.ConfigureImportAsync(source, enabled);
         public Task<bool> ReceivePushAsync(BankPush push) => inner.ReceivePushAsync(push);
@@ -348,13 +425,16 @@ public sealed class ImportTests : IDisposable
     private sealed class ImportNavigation : IImportNavigation
     {
         public int Opens { get; private set; }
+        public int SettingsOpens { get; private set; }
+        public Task OpenSettingsAsync() { SettingsOpens++; return Task.CompletedTask; }
         public bool CanOpen { get; set; } = true;
         public int Closes { get; private set; }
         public Task<bool> TryOpenInboxAsync() { if (!CanOpen) return Task.FromResult(false); Opens++; return Task.FromResult(true); }
         public Task CloseInboxAsync() { Closes++; return Task.CompletedTask; }
         public Task OpenInboxAsync() { Opens++; return Task.CompletedTask; }
         public Task ReviewAsync(string id) => Task.CompletedTask;
-        public Task<NotificationSource?> ChooseSourceAsync(IReadOnlyList<NotificationSource> sources) => Task.FromResult<NotificationSource?>(null);
+        public NotificationSource? SelectedSource { get; set; }
+        public Task<NotificationSource?> ChooseSourceAsync(IReadOnlyList<NotificationSource> sources) => Task.FromResult(SelectedSource);
         public Task<bool> ConfirmAsync(string title, string message) => Task.FromResult(true);
     }
 

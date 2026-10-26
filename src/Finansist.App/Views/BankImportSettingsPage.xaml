@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ xmlns:vm="clr-namespace:Finansist.Core.ViewModels;assembly=Finansist.Core"
+ x:Class="Finansist.App.Views.BankImportSettingsPage" x:DataType="vm:BankImportSettingsViewModel"
+ Title="Сбор уведомлений" Shell.NavBarIsVisible="True" SafeAreaEdges="Container">
+ <ScrollView><VerticalStackLayout Padding="20" Spacing="16">
+  <Label Text="Настройка сбора" Style="{StaticResource Title}" />
+  <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />
+  <Border IsVisible="{Binding HasError}"><VerticalStackLayout Spacing="10">
+   <Label Text="{Binding ErrorMessage}" />
+   <Button Text="Повторить" Command="{Binding RefreshCommand}" IsEnabled="{Binding IsIdle}" />
+  </VerticalStackLayout></Border>
+  <Border><VerticalStackLayout Spacing="14">
+   <Label Text="Банковское приложение" Style="{StaticResource Section}" />
+   <Label Text="{Binding SourceStatus}" />
+   <Button Text="Выбрать ВБРР Онлайн" Command="{Binding ChooseSourceCommand}" IsEnabled="{Binding IsIdle}" Style="{StaticResource Secondary}" />
+   <Button Text="{Binding ToggleLabel}" Command="{Binding ToggleCommand}" IsVisible="{Binding HasSource}" IsEnabled="{Binding IsIdle}" Style="{StaticResource Secondary}" />
+  </VerticalStackLayout></Border>
+  <Border><VerticalStackLayout Spacing="14">
+   <Label Text="Доступ к уведомлениям" Style="{StaticResource Section}" />
+   <Label Text="{Binding AccessStatus}" />
+   <Button Text="Разрешить доступ" Command="{Binding GrantAccessCommand}" IsVisible="{Binding NeedsAccess}" IsEnabled="{Binding IsIdle}" />
+  </VerticalStackLayout></Border>
+  <Label Text="Собираются только новые push выбранного банка после включения. Старую историю внутри банковского приложения прочитать нельзя. SMS в этой версии не подключены." Style="{StaticResource Muted}" />
+  <Label Text="Найденные операции доступны внизу вкладки «Финансы». Остановка сбора не удаляет уже полученные уведомления." Style="{StaticResource Muted}" />
+ </VerticalStackLayout></ScrollView>
+</ContentPage>

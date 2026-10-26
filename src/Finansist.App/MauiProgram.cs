@@ -34,6 +34,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<INotificationAccess, BankNotificationAccess>();
         builder.Services.AddSingleton<IImportNavigation, ImportNavigation>();
         builder.Services.AddSingleton<ImportInboxViewModel>();
+        builder.Services.AddSingleton<BankImportSettingsViewModel>();
         builder.Services.AddSingleton<ImportReviewViewModel>();
         builder.Services.AddSingleton<FinanceViewModel>();
         builder.Services.AddTransient<AccountEditorViewModel>();
