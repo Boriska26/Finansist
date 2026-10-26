@@ -18,14 +18,23 @@
      <Border IsVisible="{Binding IsEmpty}"><VerticalStackLayout Spacing="8"><Label Text="Добавьте первый счёт" Style="{StaticResource Section}" /><Label Text="Например, наличные или банковскую карту. Укажите текущий остаток — он станет отправной точкой учёта." Style="{StaticResource Muted}" /></VerticalStackLayout></Border>
      <Button Text="Пришла зарплата / аванс" Command="{Binding SalaryCommand}" IsEnabled="{Binding HasAccounts}" />
      <Label Text="Счета" Style="{StaticResource Section}" IsVisible="{Binding HasAccounts}" />
-     <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding Accounts}">
+     <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding VisibleAccounts}">
       <BindableLayout.ItemTemplate><DataTemplate x:DataType="finance:AccountBalance">
-       <Border Padding="16"><VerticalStackLayout Spacing="4">
-        <Label Text="{Binding Name}" FontAttributes="Bold" /><Label Text="{Binding BalanceText}" FontSize="23" />
-        <Button Text="Изменить счёт" Style="{StaticResource Secondary}" Command="{Binding ViewModel.EditAccountCommand, Source={x:Reference Page}, x:DataType=views:FinancePage}" CommandParameter="{Binding .}" />
-       </VerticalStackLayout></Border>
+       <Border Padding="16">
+        <Border.GestureRecognizers><DropGestureRecognizer AllowDrop="True" DragOver="OnAccountDragOver" Drop="OnAccountDrop" /></Border.GestureRecognizers>
+        <Grid ColumnDefinitions="*,48" RowDefinitions="Auto,Auto" RowSpacing="8">
+         <VerticalStackLayout Spacing="4"><Label Text="{Binding Name}" FontAttributes="Bold" /><Label Text="{Binding BalanceText}" FontSize="23" /></VerticalStackLayout>
+         <Label Grid.Column="1" Text="⋮⋮" FontSize="28" HorizontalTextAlignment="Center" VerticalTextAlignment="Center" MinimumHeightRequest="48"
+          IsVisible="{Binding ViewModel.IsAccountsExpanded, Source={x:Reference Page}, x:DataType=views:FinancePage}" SemanticProperties.Description="Удерживайте и перетащите для изменения порядка счетов">
+          <Label.GestureRecognizers><DragGestureRecognizer CanDrag="True" DragStarting="OnAccountDragStarting" /></Label.GestureRecognizers>
+         </Label>
+         <Button Grid.Row="1" Grid.ColumnSpan="2" Text="Изменить счёт" Style="{StaticResource Secondary}" Command="{Binding ViewModel.EditAccountCommand, Source={x:Reference Page}, x:DataType=views:FinancePage}" CommandParameter="{Binding .}" />
+        </Grid>
+       </Border>
       </DataTemplate></BindableLayout.ItemTemplate>
      </VerticalStackLayout>
+     <Button Text="{Binding AccountsToggleText}" IsVisible="{Binding CanToggleAccounts}" Command="{Binding ToggleAccountsCommand}" IsEnabled="{Binding IsIdle}" Style="{StaticResource Secondary}" />
+     <Label Text="Удерживайте ⋮⋮ справа и перетащите счёт выше или ниже. Первый счёт остаётся виден при сворачивании." IsVisible="{Binding IsAccountsExpanded}" Style="{StaticResource Muted}" />
      <Label Text="Операции" Style="{StaticResource Section}" />
      <Label Text="Операций пока нет. Начальный остаток счёта не считается доходом." Style="{StaticResource Muted}" IsVisible="{Binding NoOperations}" />
     </VerticalStackLayout>

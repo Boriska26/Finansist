@@ -95,6 +95,8 @@ public sealed partial class LocalStore
     {
         var accounts = db.Query("SELECT id, name, opening_minor FROM accounts ORDER BY name, id")
             .Select(row => new Account(row[0]!, row[1]!, long.Parse(row[2]!, Invariant))).ToArray();
+        var order = ReadAccountLayout(db).Order.Select((id, index) => (id, index)).ToDictionary(item => item.id, item => item.index);
+        accounts = accounts.OrderBy(a => order[a.Id]).ToArray();
         var operations = db.Query("SELECT id, kind, account_id, destination_id, amount_minor, occurred_on, category, note FROM operations ORDER BY occurred_on DESC, rowid DESC")
             .Select(row => new FinanceOperation(row[0]!, row[1] switch
             {

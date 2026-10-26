@@ -103,6 +103,60 @@ public sealed class FinanceViewModelTests
         Assert.True(vm.IsEmpty); Assert.True(vm.NoOperations); Assert.Empty(vm.Operations); Assert.Equal("— ₽", vm.TotalText);
     }
 
+    [Fact]
+    public async Task Accounts_CollapseKeepsFirstAndReorderPersistsAcrossRefresh()
+    {
+        var store = new MemoryStore();
+        var second = Account(); var third = Account();
+        store.Snapshot = new([new(store.Account, 100), new(second, 200), new(third, 300)], []);
+        var vm = new FinanceViewModel(store, new Navigation(), new(new ThemeStore(), new ThemeService()));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.False(vm.IsAccountsExpanded); Assert.True(vm.CanToggleAccounts);
+        Assert.Equal(store.Account.Id, Assert.Single(vm.VisibleAccounts).Id);
+        await vm.ToggleAccountsCommand.ExecuteAsync(null);
+        Assert.Equal(3, vm.VisibleAccounts.Count);
+        await vm.MoveAccountCommand.ExecuteAsync(new AccountMove(third.Id, store.Account.Id, false));
+        Assert.Equal(third.Id, vm.Accounts[0].Id);
+        await vm.MoveAccountCommand.ExecuteAsync(new AccountMove(store.Account.Id, second.Id, true));
+        Assert.Equal(new[] { third.Id, second.Id, store.Account.Id }, store.Layout.Order);
+        await vm.ToggleAccountsCommand.ExecuteAsync(null);
+        Assert.Equal(third.Id, Assert.Single(vm.VisibleAccounts).Id);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.False(vm.IsAccountsExpanded); Assert.Equal(third.Id, Assert.Single(vm.VisibleAccounts).Id);
+        Assert.Equal(600, store.Snapshot.TotalMinor);
+    }
+
+    [Fact]
+    public async Task FailedLayoutWritePreservesVisibleOrderAndExpansion()
+    {
+        var store = new MemoryStore(); var second = Account();
+        store.Snapshot = new([new(store.Account, 100), new(second, 200)], []);
+        var vm = new FinanceViewModel(store, new Navigation(), new(new ThemeStore(), new ThemeService()));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        store.FailLayout = true;
+        await vm.ToggleAccountsCommand.ExecuteAsync(null);
+        Assert.True(vm.HasError); Assert.False(vm.IsAccountsExpanded); Assert.Single(vm.VisibleAccounts);
+        store.FailLayout = false; await vm.ToggleAccountsCommand.ExecuteAsync(null);
+        store.FailLayout = true;
+        await vm.MoveAccountCommand.ExecuteAsync(new AccountMove(second.Id, store.Account.Id, false));
+        Assert.True(vm.HasError); Assert.Equal(store.Account.Id, vm.VisibleAccounts[0].Id);
+        Assert.True(vm.IsAccountsExpanded);
+    }
+
+    [Fact]
+    public async Task ZeroOrOneAccountHasNoExpansionAction()
+    {
+        var store = new MemoryStore();
+        var vm = new FinanceViewModel(store, new Navigation(), new(new ThemeStore(), new ThemeService()));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.False(vm.CanToggleAccounts); Assert.Single(vm.VisibleAccounts);
+        store.Snapshot = FinanceSnapshot.Empty;
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.False(vm.CanToggleAccounts); Assert.Empty(vm.VisibleAccounts);
+        await vm.ToggleAccountsCommand.ExecuteAsync(null);
+        Assert.False(vm.IsAccountsExpanded);
+    }
+
     private sealed class MemoryStore : IFinanceStore
     {
         public Account Account { get; } = FinanceViewModelTests.Account();
@@ -113,6 +167,17 @@ public sealed class FinanceViewModelTests
         public bool FailSave { get; set; }
         public TaskCompletionSource<FinanceSnapshot>? PendingSave { get; set; }
         public FinanceOperation? LastOperation { get; private set; }
+        public AccountLayout Layout { get; set; } = new([], false);
+        public bool FailLayout { get; set; }
+        public Task<AccountLayout> ReadAccountLayoutAsync() => Task.FromResult(Layout);
+        public Task SaveAccountLayoutAsync(AccountLayout layout)
+        {
+            if (FailLayout) return Task.FromException(new StorageException("Синтетическая ошибка"));
+            Layout = layout;
+            var order = layout.Order.Select((id, i) => (id, i)).ToDictionary(p => p.id, p => p.i);
+            Snapshot = Snapshot with { Accounts = Snapshot.Accounts.OrderBy(a => order[a.Id]).ToArray() };
+            return Task.CompletedTask;
+        }
         public Task<FinanceSnapshot> ReadFinanceAsync() => Task.FromResult(Snapshot);
         public Task<FinanceSnapshot> SaveAccountAsync(Account account) => Task.FromResult(Snapshot);
         public Task<FinanceSnapshot> DeleteAccountAsync(string id) { DeleteCalls++; return Task.FromResult(Snapshot); }

@@ -14,6 +14,48 @@ public sealed class FinanceStoreTests : IDisposable
     public FinanceStoreTests() => Directory.CreateDirectory(directory);
     public void Dispose() => Directory.Delete(directory, true);
 
+    [Fact]
+    public async Task AccountLayout_SurvivesReopenAndRenameWithoutChangingBalances()
+    {
+        var store = Store(); var first = NewAccount("Альфа", 100); var second = NewAccount("Бета", 200);
+        await store.SaveAccountAsync(first); await store.SaveAccountAsync(second);
+        await store.SaveAccountLayoutAsync(new([second.Id, first.Id], true));
+        await Store().SaveAccountAsync(second with { Name = "Я — основная" });
+        var snapshot = await Store().ReadFinanceAsync();
+        Assert.Equal(new[] { second.Id, first.Id }, snapshot.Accounts.Select(a => a.Id));
+        Assert.Equal(300, snapshot.TotalMinor);
+        var layout = await Store().ReadAccountLayoutAsync();
+        Assert.True(layout.Expanded);
+        await Store().SaveAccountLayoutAsync(layout with { Expanded = false });
+        Assert.False((await Store().ReadAccountLayoutAsync()).Expanded);
+    }
+
+    [Fact]
+    public async Task AccountLayout_AppendsNewAccountsAndRemovesDeletedOnes()
+    {
+        var store = Store(); var first = NewAccount("Бета"); var second = NewAccount("Гамма"); var added = NewAccount("Альфа");
+        await store.SaveAccountAsync(first); await store.SaveAccountAsync(second);
+        await store.SaveAccountLayoutAsync(new([second.Id, first.Id], false));
+        await store.SaveAccountAsync(added);
+        Assert.Equal(new[] { second.Id, first.Id, added.Id }, (await Store().ReadFinanceAsync()).Accounts.Select(a => a.Id));
+        await store.DeleteAccountAsync(second.Id);
+        Assert.Equal(new[] { first.Id, added.Id }, (await Store().ReadAccountLayoutAsync()).Order);
+        Assert.Equal(first.Id, (await Store().ReadFinanceAsync()).Accounts[0].Id);
+    }
+
+    [Fact]
+    public async Task AccountLayout_RejectsStaleOrDuplicateListWithoutLosingSavedOrder()
+    {
+        var store = Store(); var first = NewAccount("Альфа"); var second = NewAccount("Бета");
+        await store.SaveAccountAsync(first); await store.SaveAccountAsync(second);
+        await store.SaveAccountLayoutAsync(new([second.Id, first.Id], false));
+        await Assert.ThrowsAsync<FinanceValidationException>(() => store.SaveAccountLayoutAsync(new([first.Id, first.Id], true)));
+        await Assert.ThrowsAsync<FinanceValidationException>(() => store.SaveAccountLayoutAsync(new([first.Id], true)));
+        var saved = await Store().ReadAccountLayoutAsync();
+        Assert.Equal(new[] { second.Id, first.Id }, saved.Order);
+        Assert.False(saved.Expanded);
+    }
+
     [Theory]
     [InlineData(2)]
     [InlineData(3)]

@@ -47,10 +47,48 @@ public sealed record OperationRow(FinanceOperation Operation, string AccountText
     public bool HasNote => Note.Length > 0;
 }
 
+public sealed record AccountMove(string SourceId, string TargetId, bool After);
+
 public partial class FinanceViewModel(IFinanceStore store, IFinanceNavigation navigation, AppViewModel appState) : FinanceScreenViewModel
 {
     public AppViewModel AppState { get; } = appState;
     public ObservableCollection<AccountBalance> Accounts { get; } = [];
+    public ObservableCollection<AccountBalance> VisibleAccounts { get; } = [];
+    [ObservableProperty] private bool isAccountsExpanded;
+    public bool CanToggleAccounts => Accounts.Count > 1;
+    public bool CanReorderAccounts => CanToggleAccounts && IsAccountsExpanded && IsIdle;
+    public string AccountsToggleText => IsAccountsExpanded ? "Свернуть: оставить первый счёт" : $"Показать остальные ({Math.Max(0, Accounts.Count - 1)})";
+    partial void OnIsAccountsExpandedChanged(bool value) => UpdateVisibleAccounts();
+    private void UpdateVisibleAccounts()
+    {
+        VisibleAccounts.Clear();
+        foreach (var account in Accounts.Take(IsAccountsExpanded ? Accounts.Count : 1)) VisibleAccounts.Add(account);
+        OnPropertyChanged(nameof(CanToggleAccounts));
+        OnPropertyChanged(nameof(CanReorderAccounts));
+        OnPropertyChanged(nameof(AccountsToggleText));
+    }
+    [RelayCommand] private Task ToggleAccountsAsync() => RunAsync(async () =>
+    {
+        if (!CanToggleAccounts) return;
+        var expanded = !IsAccountsExpanded;
+        await store.SaveAccountLayoutAsync(new AccountLayout(Accounts.Select(a => a.Id).ToArray(), expanded));
+        IsAccountsExpanded = expanded;
+    });
+    [RelayCommand] private Task MoveAccountAsync(AccountMove move) => RunAsync(async () =>
+    {
+        if (!IsAccountsExpanded || move.SourceId == move.TargetId) return;
+        var ordered = Accounts.ToList();
+        var source = ordered.FindIndex(a => a.Id == move.SourceId);
+        if (source < 0 || !ordered.Any(a => a.Id == move.TargetId))
+            throw new FinanceValidationException("Список счетов изменился. Обновите экран.");
+        var account = ordered[source]; ordered.RemoveAt(source);
+        var target = ordered.FindIndex(a => a.Id == move.TargetId);
+        ordered.Insert(target + (move.After ? 1 : 0), account);
+        if (Accounts.Select(a => a.Id).SequenceEqual(ordered.Select(a => a.Id))) return;
+        await store.SaveAccountLayoutAsync(new AccountLayout(ordered.Select(a => a.Id).ToArray(), true));
+        Accounts.Clear(); foreach (var item in ordered) Accounts.Add(item);
+        UpdateVisibleAccounts();
+    });
     public ObservableCollection<OperationRow> Operations { get; } = [];
     private FinanceSnapshot snapshot = FinanceSnapshot.Empty;
     [ObservableProperty] private string totalText = "— ₽";
@@ -66,8 +104,11 @@ public partial class FinanceViewModel(IFinanceStore store, IFinanceNavigation na
     private Task RefreshAsync() => RunAsync(async () =>
     {
         snapshot = await store.ReadFinanceAsync();
+        var layout = await store.ReadAccountLayoutAsync();
         Accounts.Clear();
         foreach (var account in snapshot.Accounts) Accounts.Add(account);
+        IsAccountsExpanded = layout.Expanded;
+        UpdateVisibleAccounts();
         HasAccounts = Accounts.Count > 0;
         TotalText = HasAccounts ? Money.Format(snapshot.TotalMinor) : "— ₽";
         Operations.Clear();
