@@ -68,7 +68,9 @@ public sealed partial class LocalStore
         return ReadBudgetState(db);
     });
 
-    public Task<BudgetState> SaveBudgetOperationAsync(FinanceOperation operation, ExpensePurpose? purpose) => RunAsync(db =>
+    public Task<BudgetState> SaveBudgetOperationAsync(FinanceOperation operation, ExpensePurpose? purpose) => RunAsync(db => SaveBudgetOperationCore(db, operation, purpose));
+
+    private static BudgetState SaveBudgetOperationCore(ISqliteConnection db, FinanceOperation operation, ExpensePurpose? purpose)
     {
         var document = ReadBudgetDocument(db);
         var purposes = document.Purposes.Where(p => p.OperationId != operation.Id).ToList();
@@ -87,7 +89,7 @@ public sealed partial class LocalStore
         WriteBudget(db, document with { Purposes = purposes });
         SaveOperationCore(db, operation);
         return ReadBudgetState(db);
-    });
+    }
 
     private static void ValidateBudgetOperation(ISqliteConnection db, FinanceOperation operation)
     {

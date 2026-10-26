@@ -1,6 +1,7 @@
 using Finansist.App.Services;
 using Finansist.App.Views;
 using Finansist.Core.Storage;
+using Finansist.Core.Importing;
 using Finansist.Core.Budgeting;
 using Finansist.Core.Finance;
 using Finansist.Core.ViewModels;
@@ -24,6 +25,10 @@ public static class MauiProgram
         builder.Services.AddSingleton<BudgetViewModel>();
         builder.Services.AddTransient<BudgetEditorViewModel>();
         builder.Services.AddSingleton<BudgetPage>();
+        builder.Services.AddSingleton<IBankImportStore>(services => services.GetRequiredService<LocalStore>());
+        builder.Services.AddSingleton<INotificationAccess, BankNotificationAccess>();
+        builder.Services.AddSingleton<IImportNavigation, ImportNavigation>();
+        builder.Services.AddSingleton<ImportInboxViewModel>();
         builder.Services.AddSingleton<FinanceViewModel>();
         builder.Services.AddTransient<AccountEditorViewModel>();
         builder.Services.AddTransient<OperationEditorViewModel>();

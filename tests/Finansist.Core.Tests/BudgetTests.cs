@@ -204,14 +204,14 @@ public sealed class BudgetTests : IDisposable
         await Setup();
         using (var db = new NativeSqliteConnection(DatabasePath))
         {
-            db.Execute("DROP TABLE salary_budget"); db.Execute("PRAGMA user_version = 3");
+            db.Execute("DROP TABLE notification_imports"); db.Execute("DROP TABLE salary_budget"); db.Execute("PRAGMA user_version = 3");
             db.Execute("CREATE TABLE planning_state (id INTEGER PRIMARY KEY, payload TEXT)");
             db.Execute("INSERT INTO planning_state VALUES (1, 'synthetic old plan')");
         }
         var state = await Store().ReadBudgetAsync();
         Assert.Single(state.Finance.Operations); Assert.Empty(state.Document.Allocations);
         using var check = new NativeSqliteConnection(DatabasePath);
-        Assert.Equal("4", check.Scalar("PRAGMA user_version"));
+        Assert.Equal("5", check.Scalar("PRAGMA user_version"));
         Assert.Equal("synthetic old plan", check.Scalar("SELECT payload FROM planning_state WHERE id=1"));
     }
 
@@ -251,7 +251,7 @@ public sealed class BudgetTests : IDisposable
         await Setup();
         using (var db = new NativeSqliteConnection(DatabasePath))
         {
-            db.Execute("DROP TABLE salary_budget"); db.Execute("PRAGMA user_version = 3");
+            db.Execute("DROP TABLE notification_imports"); db.Execute("DROP TABLE salary_budget"); db.Execute("PRAGMA user_version = 3");
         }
         var failing = new LocalStore(new FailureFactory(DatabasePath, "PRAGMA user_version = 4"));
         await Assert.ThrowsAsync<StorageException>(() => failing.ReadBudgetAsync());

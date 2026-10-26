@@ -15,9 +15,9 @@ public sealed class LocalStoreTests : IDisposable
     {
         Assert.Equal(ThemePreference.System, await NewStore().ReadThemeAsync());
         using var db = new NativeSqliteConnection(DatabasePath);
-        Assert.Equal("4", db.Scalar("PRAGMA user_version"));
+        Assert.Equal("5", db.Scalar("PRAGMA user_version"));
         Assert.Equal("0", db.Scalar("SELECT COUNT(*) FROM app_settings"));
-        Assert.Equal("4", db.Scalar("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"));
+        Assert.Equal("5", db.Scalar("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"));
         Assert.Equal("ok", db.Scalar("PRAGMA integrity_check"));
     }
 

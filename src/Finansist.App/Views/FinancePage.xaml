@@ -16,6 +16,7 @@
       <VerticalStackLayout Spacing="8"><Label Text="Всего на счетах" TextColor="#D4EDDF" /><Label Text="{Binding TotalText}" FontSize="32" FontAttributes="Bold" TextColor="White" /><Label Text="Текущий баланс · российские рубли" TextColor="#D4EDDF" FontSize="14" /></VerticalStackLayout>
      </Border>
      <Border IsVisible="{Binding IsEmpty}"><VerticalStackLayout Spacing="8"><Label Text="Добавьте первый счёт" Style="{StaticResource Section}" /><Label Text="Например, наличные или банковскую карту. Укажите текущий остаток — он станет отправной точкой учёта." Style="{StaticResource Muted}" /></VerticalStackLayout></Border>
+     <Button Text="{Binding ImportLabel}" Command="{Binding ImportInboxCommand}" IsEnabled="{Binding IsIdle}" Style="{StaticResource Secondary}" />
      <Button Text="Пришла зарплата / аванс" Command="{Binding SalaryCommand}" IsEnabled="{Binding HasAccounts}" />
      <Label Text="Счета" Style="{StaticResource Section}" IsVisible="{Binding HasAccounts}" />
      <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding VisibleAccounts}">

@@ -10,6 +10,11 @@
    <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />
    <Border IsVisible="{Binding HasError}"><VerticalStackLayout Spacing="10"><Label Text="{Binding ErrorMessage}" /><Button Text="Повторить загрузку" Command="{Binding LoadCommand}" Style="{StaticResource Secondary}" /></VerticalStackLayout></Border>
    <VerticalStackLayout Spacing="10" IsEnabled="{Binding IsIdle}">
+    <VerticalStackLayout IsVisible="{Binding IsImported}" Spacing="10">
+     <Label Text="Исходное уведомление" Style="{StaticResource Section}" /><Label Text="{Binding ImportText}" />
+     <Label Text="{Binding ImportNotice}" Style="{StaticResource Muted}" />
+     <Label Text="Проверьте счёт, сумму и дату. Для СБП между своими картами выберите «Перевод» и счёт получателя." Style="{StaticResource Muted}" />
+    </VerticalStackLayout>
     <Label Text="Тип операции" FontAttributes="Bold" /><Picker ItemsSource="{Binding Kinds}" SelectedIndex="{Binding KindIndex}" Title="Расход, доход или перевод" />
     <Label Text="Сумма, ₽" FontAttributes="Bold" /><Entry Text="{Binding Amount}" Keyboard="Numeric" MaxLength="20" Placeholder="0,00" SemanticProperties.Description="Сумма операции в рублях" />
     <Label Text="{Binding AccountLabel}" FontAttributes="Bold" />
@@ -31,12 +36,18 @@
      <Label Text="Для аренды или рассрочки выберите конкретный платёж — тогда он не будет зарезервирован повторно." Style="{StaticResource Muted}" />
     </VerticalStackLayout>
     <Label Text="Примечание (необязательно)" FontAttributes="Bold" /><Editor Text="{Binding Note}" MaxLength="300" AutoSize="TextChanges" MinimumHeightRequest="80" Placeholder="Что стоит запомнить" />
+    <VerticalStackLayout IsVisible="{Binding IsImported}" Spacing="10">
+     <Button Text="Проверить совпадения с журналом" Command="{Binding FindMatchesCommand}" Style="{StaticResource Secondary}" />
+     <Label Text="{Binding MatchNotice}" />
+     <Picker Title="Новая операция или уже записанная?" ItemsSource="{Binding ExistingChoices}" SelectedItem="{Binding SelectedExisting}" ItemDisplayBinding="{Binding Label, x:DataType=vm:ExistingImportChoice}" />
+     <Button Text="Это не операция — отклонить" Command="{Binding DismissImportedCommand}" Style="{StaticResource Secondary}" />
+    </VerticalStackLayout>
     <Button Text="Удалить операцию" Style="{StaticResource Secondary}" IsVisible="{Binding IsExisting}" Command="{Binding DeleteCommand}" Margin="0,12,0,0" />
    </VerticalStackLayout>
   </VerticalStackLayout></ScrollView>
   <Grid Grid.Row="1" Padding="16,10" ColumnDefinitions="*,*" ColumnSpacing="10" IsEnabled="{Binding IsIdle}" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#182620}">
    <Button Text="Отмена" Style="{StaticResource Secondary}" Command="{Binding CancelCommand}" />
-   <Button Grid.Column="1" Text="Сохранить" Command="{Binding SaveCommand}" />
+   <Button Grid.Column="1" Text="{Binding SaveLabel}" Command="{Binding SaveCommand}" />
   </Grid>
  </Grid>
 </ContentPage>

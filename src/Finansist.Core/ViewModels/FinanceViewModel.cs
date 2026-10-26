@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Finansist.Core.Finance;
 using Finansist.Core.Storage;
+using Finansist.Core.Importing;
 
 namespace Finansist.Core.ViewModels;
 
@@ -49,9 +50,11 @@ public sealed record OperationRow(FinanceOperation Operation, string AccountText
 
 public sealed record AccountMove(string SourceId, string TargetId, bool After);
 
-public partial class FinanceViewModel(IFinanceStore store, IFinanceNavigation navigation, AppViewModel appState) : FinanceScreenViewModel
+public partial class FinanceViewModel(IFinanceStore store, IFinanceNavigation navigation, AppViewModel appState, IBankImportStore? importStore = null, IImportNavigation? importNavigation = null) : FinanceScreenViewModel
 {
     public AppViewModel AppState { get; } = appState;
+    [ObservableProperty] private string importLabel = "Банковские уведомления — настроить / проверить";
+    [RelayCommand] private Task ImportInboxAsync() => RunAsync(() => importNavigation?.OpenInboxAsync() ?? Task.CompletedTask);
     public ObservableCollection<AccountBalance> Accounts { get; } = [];
     public ObservableCollection<AccountBalance> VisibleAccounts { get; } = [];
     [ObservableProperty] private bool isAccountsExpanded;
@@ -115,6 +118,11 @@ public partial class FinanceViewModel(IFinanceStore store, IFinanceNavigation na
         AppendOperations();
         IsLoaded = true;
         OnPropertyChanged(nameof(NoOperations));
+        if (importStore is not null)
+        {
+            var inbox = await importStore.ReadImportsAsync();
+            ImportLabel = inbox.Pending.Count > 0 ? $"Найдено операций: {inbox.Pending.Count} — проверить" : "Банковские уведомления — настроить / проверить";
+        }
     });
 
     [RelayCommand]
