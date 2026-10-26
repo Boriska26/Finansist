@@ -1,12 +1,13 @@
 using Finansist.Core.Finance;
 using Finansist.Core.Budgeting;
 using Finansist.Core.Importing;
+using Finansist.Core.Shopping;
 
 namespace Finansist.Core.Storage;
 
-public sealed partial class LocalStore(ISqliteConnectionFactory factory) : ILocalStore, IFinanceStore, IBudgetStore, IBankImportStore
+public sealed partial class LocalStore(ISqliteConnectionFactory factory) : ILocalStore, IFinanceStore, IBudgetStore, IBankImportStore, IShoppingStore
 {
-    public const int SchemaVersion = 5;
+    public const int SchemaVersion = 6;
     private readonly SemaphoreSlim gate = new(1, 1);
 
     public Task<ThemePreference> ReadThemeAsync() => RunAsync(db =>
@@ -117,6 +118,12 @@ public sealed partial class LocalStore(ISqliteConnectionFactory factory) : ILoca
             db.Execute("CREATE INDEX ix_notification_imports_status ON notification_imports(status, received_at)");
             db.Execute("CREATE INDEX ix_notification_imports_fingerprint ON notification_imports(fingerprint)");
             db.Execute("PRAGMA user_version = 5");
+            version = 5;
+        }
+        if (version == 5)
+        {
+            db.Execute("CREATE TABLE IF NOT EXISTS shopping_state (id INTEGER NOT NULL PRIMARY KEY CHECK(id = 1), revision INTEGER NOT NULL, payload TEXT NOT NULL)");
+            db.Execute("PRAGMA user_version = 6");
         }
     }
 }

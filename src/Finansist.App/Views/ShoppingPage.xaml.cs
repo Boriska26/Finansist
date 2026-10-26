@@ -3,15 +3,14 @@ namespace Finansist.App.Views;
 
 public partial class ShoppingPage : ContentPage
 {
-    private readonly AppViewModel viewModel;
-    public ShoppingPage(AppViewModel viewModel)
+    public ShoppingViewModel ViewModel { get; }
+    public ShoppingPage(ShoppingViewModel viewModel)
     {
-        InitializeComponent();
-        BindingContext = this.viewModel = viewModel;
+        ViewModel = viewModel;
+        InitializeComponent(); BindingContext = viewModel;
     }
     protected override async void OnAppearing()
     {
-        base.OnAppearing();
-        if (!viewModel.IsReady) await viewModel.InitializeCommand.ExecuteAsync(null);
+        base.OnAppearing(); await ViewModel.RefreshCommand.ExecuteAsync(null);
     }
 }

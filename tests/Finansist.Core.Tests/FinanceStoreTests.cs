@@ -116,7 +116,7 @@ public sealed class FinanceStoreTests : IDisposable
         Assert.Equal(70000, (await Store().SaveOperationAsync(operation with { AmountMinor = 30000 })).TotalMinor);
         Assert.Equal(100000, (await Store().DeleteOperationAsync(operation.Id)).TotalMinor);
         using var check = new NativeSqliteConnection(DatabasePath);
-        Assert.Equal("5", check.Scalar("PRAGMA user_version"));
+        Assert.Equal("6", check.Scalar("PRAGMA user_version"));
         Assert.Equal("ok", check.Scalar("PRAGMA integrity_check"));
         if (version == 3)
         {
@@ -142,7 +142,7 @@ public sealed class FinanceStoreTests : IDisposable
         Assert.Empty(snapshot.Accounts);
         Assert.Empty(snapshot.Operations);
         using var check = new NativeSqliteConnection(DatabasePath);
-        Assert.Equal("5", check.Scalar("PRAGMA user_version"));
+        Assert.Equal("6", check.Scalar("PRAGMA user_version"));
         Assert.Equal("ok", check.Scalar("PRAGMA integrity_check"));
     }
 

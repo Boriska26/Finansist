@@ -209,7 +209,7 @@ public sealed class ImportTests : IDisposable
         Assert.Empty((await Store().ReadImportsAsync()).Pending); Assert.Equal(second.Id, (await Store().ReadFinanceAsync()).Accounts[0].Id);
         Assert.Equal(bill, Assert.Single((await Store().ReadBudgetAsync()).Document.Bills));
         Assert.Equal(ThemePreference.Dark, await Store().ReadThemeAsync());
-        using var check = new NativeSqliteConnection(DatabasePath); Assert.Equal("5", check.Scalar("PRAGMA user_version"));
+        using var check = new NativeSqliteConnection(DatabasePath); Assert.Equal("6", check.Scalar("PRAGMA user_version"));
     }
     [Fact]
     public async Task FailedMigrationRollsBackAndRetainsSchemaFour()

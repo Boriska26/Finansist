@@ -211,7 +211,7 @@ public sealed class BudgetTests : IDisposable
         var state = await Store().ReadBudgetAsync();
         Assert.Single(state.Finance.Operations); Assert.Empty(state.Document.Allocations);
         using var check = new NativeSqliteConnection(DatabasePath);
-        Assert.Equal("5", check.Scalar("PRAGMA user_version"));
+        Assert.Equal("6", check.Scalar("PRAGMA user_version"));
         Assert.Equal("synthetic old plan", check.Scalar("SELECT payload FROM planning_state WHERE id=1"));
     }
 

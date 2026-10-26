@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ xmlns:vm="clr-namespace:Finansist.Core.ViewModels;assembly=Finansist.Core" x:Class="Finansist.App.Views.ProductEditorPage"
+ x:DataType="vm:ProductEditorViewModel" Title="Товар в каталоге" Shell.NavBarIsVisible="True" SafeAreaEdges="Container">
+ <Grid RowDefinitions="*,Auto"><ScrollView><VerticalStackLayout Padding="20" Spacing="14">
+  <Label Text="Товар в каталоге" Style="{StaticResource Title}" />
+  <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />
+  <Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+  <Button Text="Повторить загрузку" Command="{Binding LoadCommand}" IsVisible="{Binding HasError}" Style="{StaticResource Secondary}" />
+  <VerticalStackLayout IsEnabled="{Binding IsIdle}" Spacing="12">
+   <Label Text="Название" /><Entry Text="{Binding Name}" MaxLength="80" Placeholder="Например, молоко 0,9 л" />
+   <Label Text="Единица цены и количества" /><Picker ItemsSource="{Binding Units}" SelectedIndex="{Binding UnitIndex}" />
+   <Label Text="Последняя известная цена за единицу, ₽" /><Entry Text="{Binding Price}" Keyboard="Numeric" Placeholder="Можно оставить пустым" />
+   <Label Text="{Binding PriceHint}" Style="{StaticResource Muted}" />
+   <Label Text="Обычное назначение" /><Picker ItemsSource="{Binding Purposes}" SelectedIndex="{Binding PurposeIndex}" />
+   <Label Text="Для конкретного списка назначение можно поменять отдельно. Цены общие для всех списков, без привязки к магазину." Style="{StaticResource Muted}" />
+   <Button Text="Удалить товар" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}" Style="{StaticResource Secondary}" />
+  </VerticalStackLayout>
+ </VerticalStackLayout></ScrollView><Button Grid.Row="1" Text="Сохранить товар" Command="{Binding SaveCommand}" IsEnabled="{Binding IsIdle}" Margin="16,10" /></Grid>
+</ContentPage>

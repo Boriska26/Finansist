@@ -28,6 +28,9 @@ public static class BudgetCalculator
     public static long Needed(BudgetState state, BudgetBill bill) => bill.Settled || bill.Archived ? 0 :
         Math.Max(0, bill.AmountMinor - Math.Max(Paid(state, bill.Id), Covered(state, bill.Id)));
 
+    public static long ReservedBills(BudgetState state) => state.Document.Bills.Aggregate(0L, (sum, bill) => checked(sum +
+        Math.Max(0, Math.Min(Covered(state, bill.Id), bill.Settled || bill.Archived ? 0 : bill.AmountMinor) - Paid(state, bill.Id))));
+
     public static BudgetTotals Totals(BudgetState state)
     {
         var doc = state.Document;
