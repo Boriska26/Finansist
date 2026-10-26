@@ -89,6 +89,24 @@ public partial class FinanceViewModel(IFinanceStore store, IFinanceNavigation na
         Accounts.Clear(); foreach (var item in ordered) Accounts.Add(item);
         UpdateVisibleAccounts();
     });
+    private FinanceOverviewViewModel? overview;
+    public FinanceOverviewViewModel Overview => overview ??= new(ShowOverviewOperationsAsync, () => IsOverviewVisible = false);
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsLedgerVisible))]
+    private bool isOverviewVisible;
+    public bool IsLedgerVisible => !IsOverviewVisible;
+    [RelayCommand] private void ShowOverview() => IsOverviewVisible = true;
+    [RelayCommand] private void ShowLedger() => IsOverviewVisible = false;
+    private async Task ShowOverviewOperationsAsync(DateOnly from, DateOnly to)
+    {
+        if (IsBusy) return;
+        HistoryPeriodIndex = 1; HistoryKindIndex = 0;
+        HistoryFrom = from.ToDateTime(TimeOnly.MinValue); HistoryTo = to.ToDateTime(TimeOnly.MinValue);
+        await ApplyHistoryFiltersCommand.ExecuteAsync(null);
+        if (HasError) return;
+        IsOperationsExpanded = true;
+        IsOverviewVisible = false;
+    }
     public ObservableCollection<OperationRow> Operations { get; } = [];
     public ObservableCollection<OperationRow> VisibleOperations { get; } = [];
     [ObservableProperty] private bool isOperationsExpanded;
@@ -134,6 +152,7 @@ public partial class FinanceViewModel(IFinanceStore store, IFinanceNavigation na
         TotalText = HasAccounts ? Money.Format(snapshot.TotalMinor) : "— ₽";
         IsLoaded = true;
         RebuildHistory();
+        Overview.SetSnapshot(snapshot);
         OnPropertyChanged(nameof(NoOperations));
     });
 

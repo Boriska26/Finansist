@@ -22,6 +22,7 @@ public sealed record AccountBalance(Account Account, long BalanceMinor)
 
 public sealed record FinanceSnapshot(IReadOnlyList<AccountBalance> Accounts, IReadOnlyList<FinanceOperation> Operations)
 {
+    public DateOnly? BalanceKnownFrom { get; init; }
     public long TotalMinor => Accounts.Aggregate(0L, (sum, account) => checked(sum + account.BalanceMinor));
     public static FinanceSnapshot Empty { get; } = new([], []);
 }

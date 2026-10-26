@@ -11,6 +11,8 @@ public partial class FinancePage : ContentPage
         InitializeComponent();
         BindingContext = viewModel;
     }
+    private void OnOverviewSwiped(object? sender, SwipedEventArgs args) => ViewModel.ShowOverviewCommand.Execute(null);
+    private void OnLedgerSwiped(object? sender, SwipedEventArgs args) => ViewModel.ShowLedgerCommand.Execute(null);
     private const string AccountDragKey = "FinansistAccountId";
     // MAUI 10 sends the source/target View, while older releases can send the recognizer.
     private static VisualElement? GestureView(object? sender) => sender switch

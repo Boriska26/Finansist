@@ -205,6 +205,23 @@ public sealed class FinanceViewModelTests
     }
 
     [Fact]
+    public async Task OverviewDrillDownOpensExpandedFilteredJournalAndKeepsBalances()
+    {
+        var store = HistoryStore(); var vm = new FinanceViewModel(store, new Navigation(), new(new ThemeStore(), new ThemeService()));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        vm.ShowOverviewCommand.Execute(null); Assert.True(vm.IsOverviewVisible); Assert.False(vm.IsLedgerVisible);
+        vm.Overview.CloseCommand.Execute(null); Assert.True(vm.IsLedgerVisible);
+        vm.ShowOverviewCommand.Execute(null);
+        var before = store.Snapshot.TotalMinor;
+        vm.Overview.PeriodIndex = 0;
+        await vm.Overview.OpenOperationsCommand.ExecuteAsync(null);
+        Assert.False(vm.IsOverviewVisible); Assert.True(vm.IsOperationsExpanded);
+        Assert.Equal(1, vm.HistoryPeriodIndex); Assert.Equal(0, vm.HistoryKindIndex);
+        Assert.Equal(before, store.Snapshot.TotalMinor);
+        Assert.Contains(vm.Overview.PeriodText, vm.HistorySummary);
+    }
+
+    [Fact]
     public async Task HistoryDefaultsToTenNewestWithoutChangingLedger()
     {
         var store = HistoryStore(); var vm = new FinanceViewModel(store, new Navigation(), new(new ThemeStore(), new ThemeService()));

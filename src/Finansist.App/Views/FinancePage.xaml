@@ -4,14 +4,22 @@
  xmlns:finance="clr-namespace:Finansist.Core.Finance;assembly=Finansist.Core"
  xmlns:views="clr-namespace:Finansist.App.Views" x:Class="Finansist.App.Views.FinancePage"
  x:Name="Page" x:DataType="vm:FinanceViewModel" Title="Финансы" SafeAreaEdges="Container">
- <Grid RowDefinitions="*,Auto">
+ <Grid RowDefinitions="Auto,Auto,*">
+  <Grid.GestureRecognizers><SwipeGestureRecognizer Direction="Right" Swiped="OnOverviewSwiped" /><SwipeGestureRecognizer Direction="Left" Swiped="OnLedgerSwiped" /></Grid.GestureRecognizers>
+  <Grid Padding="16,8" ColumnDefinitions="*,*" ColumnSpacing="8">
+   <Button Text="Счета и операции" Command="{Binding ShowLedgerCommand}" Style="{StaticResource Secondary}" SemanticProperties.Hint="Основной экран финансов"><Button.Triggers><DataTrigger TargetType="Button" Binding="{Binding IsLedgerVisible}" Value="True"><Setter Property="BorderWidth" Value="2" /><Setter Property="BorderColor" Value="{AppThemeBinding Light=#315DA8, Dark=#A8C7FA}" /></DataTrigger></Button.Triggers></Button>
+   <Button Grid.Column="1" Text="Обзор" Command="{Binding ShowOverviewCommand}" Style="{StaticResource Secondary}" SemanticProperties.Hint="Графики доходов, расходов и остатка"><Button.Triggers><DataTrigger TargetType="Button" Binding="{Binding IsOverviewVisible}" Value="True"><Setter Property="BorderWidth" Value="2" /><Setter Property="BorderColor" Value="{AppThemeBinding Light=#315DA8, Dark=#A8C7FA}" /></DataTrigger></Button.Triggers></Button>
+  </Grid>
+  <Border Grid.Row="1" Margin="16,0,16,8" IsVisible="{Binding HasError}"><VerticalStackLayout Spacing="8"><Label Text="{Binding ErrorMessage}" /><Button Text="Повторить загрузку" Command="{Binding RefreshCommand}" /></VerticalStackLayout></Border>
+  <views:FinanceOverviewView Grid.Row="2" BindingContext="{Binding Overview}" IsEnabled="{Binding ViewModel.IsIdle, Source={x:Reference Page}, x:DataType=views:FinancePage}" IsVisible="{Binding ViewModel.IsOverviewVisible, Source={x:Reference Page}, x:DataType=views:FinancePage}" />
+  <Grid Grid.Row="2" RowDefinitions="*,Auto" IsVisible="{Binding IsLedgerVisible}">
   <CollectionView ItemsSource="{Binding VisibleOperations}" SelectionMode="None">
+   <CollectionView.GestureRecognizers><SwipeGestureRecognizer Direction="Right" Command="{Binding ShowOverviewCommand}" /></CollectionView.GestureRecognizers>
    <CollectionView.Header>
     <VerticalStackLayout Padding="20,20,20,12" Spacing="16">
      <Label Text="Мои финансы" Style="{StaticResource Title}" />
      <views:StorageStatusView BindingContext="{Binding AppState}" />
      <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />
-     <Border IsVisible="{Binding HasError}"><VerticalStackLayout Spacing="12"><Label Text="{Binding ErrorMessage}" /><Button Text="Повторить загрузку" Command="{Binding RefreshCommand}" /></VerticalStackLayout></Border>
      <Border BackgroundColor="{AppThemeBinding Light=#26354A, Dark=#26354A}" StrokeThickness="0">
       <VerticalStackLayout Spacing="8"><Label Text="Всего на счетах" TextColor="#D8E2F4" /><Label Text="{Binding TotalText}" FontSize="32" FontAttributes="Bold" TextColor="White" /><Label Text="Текущий баланс · российские рубли" TextColor="#D8E2F4" FontSize="14" /></VerticalStackLayout>
      </Border>
@@ -80,6 +88,7 @@
   <Grid Grid.Row="1" Padding="16,10" ColumnDefinitions="*,*" ColumnSpacing="10" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1C1C1E}" IsEnabled="{Binding IsIdle}">
    <Button Text="+ Счёт" Command="{Binding AddAccountCommand}" Style="{StaticResource Secondary}" />
    <Button Grid.Column="1" Text="+ Операция" Command="{Binding AddOperationCommand}" IsEnabled="{Binding HasAccounts}" />
+  </Grid>
   </Grid>
  </Grid>
 </ContentPage>

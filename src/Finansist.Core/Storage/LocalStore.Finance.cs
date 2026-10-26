@@ -19,7 +19,9 @@ public sealed partial class LocalStore
         if (db.Query("SELECT id, name FROM accounts").Any(row => row[0] != account.Id &&
             string.Equals(row[1], name, StringComparison.OrdinalIgnoreCase)))
             throw new FinanceValidationException("Счёт с таким названием уже существует.");
+        var previousOpening = db.Scalar("SELECT opening_minor FROM accounts WHERE id = ?", account.Id);
         var amount = account.OpeningMinor.ToString(Invariant);
+        if (previousOpening != amount) ResetBalanceHistory(db);
         if (db.Scalar("SELECT id FROM accounts WHERE id = ?", account.Id) is null)
             db.Execute("INSERT INTO accounts (id, name, opening_minor) VALUES (?, ?, ?)", account.Id, name, amount);
         else
@@ -32,6 +34,7 @@ public sealed partial class LocalStore
         if (db.Scalar("SELECT id FROM operations WHERE account_id = ? OR destination_id = ? LIMIT 1", id, id) is not null)
             throw new FinanceValidationException("На счёте есть операции. Сначала перенесите или удалите их.");
         BudgetCalculator.Require(ReadBudgetDocument(db).CushionAccountId != id, "Этот счёт выбран для подушки и не может быть удалён.");
+        if (db.Scalar("SELECT id FROM accounts WHERE id = ?", id) is not null) ResetBalanceHistory(db);
         db.Execute("DELETE FROM accounts WHERE id = ?", id);
         return ReadSnapshot(db);
     });
@@ -91,6 +94,10 @@ public sealed partial class LocalStore
             throw new FinanceValidationException("Счёт не найден. Откройте форму заново и выберите существующий счёт.");
     }
 
+    private static void ResetBalanceHistory(ISqliteConnection db) => db.Execute(
+        "INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)", "balance_known_from",
+        DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd", Invariant));
+
     private static FinanceSnapshot ReadSnapshot(ISqliteConnection db)
     {
         var accounts = db.Query("SELECT id, name, opening_minor FROM accounts ORDER BY name, id")
@@ -103,6 +110,12 @@ public sealed partial class LocalStore
                 "income" => OperationKind.Income, "expense" => OperationKind.Expense, "transfer" => OperationKind.Transfer,
                 _ => throw new StorageException("Неизвестный тип операции. Обновите приложение.")
             }, row[2]!, row[3], long.Parse(row[4]!, Invariant), DateOnly.ParseExact(row[5]!, "yyyy-MM-dd", Invariant), row[6]!, row[7]!)).ToArray();
-        return Ledger.Calculate(accounts, operations);
+        var known = db.Scalar("SELECT value FROM app_settings WHERE key = ?", "balance_known_from");
+        if (known is null)
+        {
+            ResetBalanceHistory(db);
+            known = db.Scalar("SELECT value FROM app_settings WHERE key = ?", "balance_known_from");
+        }
+        return Ledger.Calculate(accounts, operations) with { BalanceKnownFrom = DateOnly.ParseExact(known!, "yyyy-MM-dd", Invariant) };
     }
 }

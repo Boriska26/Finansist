@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ xmlns:vm="clr-namespace:Finansist.Core.ViewModels;assembly=Finansist.Core" xmlns:views="clr-namespace:Finansist.App.Views"
+ x:Class="Finansist.App.Views.FinanceOverviewView" x:DataType="vm:FinanceOverviewViewModel">
+ <ScrollView><ScrollView.GestureRecognizers><SwipeGestureRecognizer Direction="Left" Command="{Binding CloseCommand}" /></ScrollView.GestureRecognizers><VerticalStackLayout Padding="20,12,20,24" Spacing="16">
+  <Label Text="Обзор финансов" Style="{StaticResource Title}" />
+  <Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" TextColor="{AppThemeBinding Light=#9B321B, Dark=#FFBCA8}" />
+  <Picker ItemsSource="{Binding Periods}" SelectedIndex="{Binding PeriodIndex}" Title="Период обзора" />
+  <Grid ColumnDefinitions="52,*,52" ColumnSpacing="8">
+   <Button Text="‹" Command="{Binding PreviousCommand}" Style="{StaticResource Secondary}" SemanticProperties.Description="Предыдущий период" />
+   <Label Grid.Column="1" Text="{Binding PeriodText}" HorizontalTextAlignment="Center" VerticalOptions="Center" FontAttributes="Bold" />
+   <Button Grid.Column="2" Text="›" Command="{Binding NextCommand}" Style="{StaticResource Secondary}" SemanticProperties.Description="Следующий период" />
+  </Grid>
+  <Button Text="Текущий период" Command="{Binding CurrentCommand}" Style="{StaticResource Secondary}" />
+  <Border><VerticalStackLayout Spacing="12">
+   <Label Text="Доходы" Style="{StaticResource Muted}" /><Label Text="{Binding IncomeText}" FontSize="24" FontAttributes="Bold" />
+   <Label Text="Расходы" Style="{StaticResource Muted}" /><Label Text="{Binding ExpenseText}" FontSize="24" FontAttributes="Bold" />
+   <Label Text="Разница за период" Style="{StaticResource Muted}" /><Label Text="{Binding DifferenceText}" FontSize="24" FontAttributes="Bold" />
+   <Label Text="На конец периода" Style="{StaticResource Muted}" /><Label Text="{Binding BalanceText}" FontSize="24" FontAttributes="Bold" />
+  </VerticalStackLayout></Border>
+  <Label Text="Доходы и расходы" Style="{StaticResource Section}" />
+  <Label Text="Синий — доходы · оранжевый — расходы" Style="{StaticResource Muted}" />
+  <views:FinanceChart Result="{Binding Result}" SelectedIndex="{Binding SelectedIndex, Mode=TwoWay}" HeightRequest="240" SemanticProperties.Description="График доходов и расходов. Итоги также доступны текстом ниже." />
+  <Label Text="За период нет записанных доходов и расходов." IsVisible="{Binding NoOperations}" Style="{StaticResource Muted}" />
+  <Label Text="Остаток на счетах" Style="{StaticResource Section}" />
+  <views:FinanceChart Result="{Binding Result}" IsBalance="True" SelectedIndex="{Binding SelectedIndex, Mode=TwoWay}" HeightRequest="240" SemanticProperties.Description="График общего остатка. Точные значения доступны ниже." />
+  <Label Text="{Binding BalanceHint}" Style="{StaticResource Muted}" />
+  <Label Text="{Binding DetailHint}" Style="{StaticResource Muted}" />
+  <Label Text="Переводы между своими счетами не считаются доходом или расходом. Здесь только сохранённые операции, без неподтверждённых уведомлений." Style="{StaticResource Muted}" />
+  <Border IsVisible="{Binding HasSelection}"><VerticalStackLayout Spacing="12">
+   <Label Text="{Binding SelectionText}" LineHeight="1.3" />
+   <Button Text="Операции за эти даты" Command="{Binding OpenOperationsCommand}" />
+  </VerticalStackLayout></Border>
+ </VerticalStackLayout></ScrollView>
+</ContentView>

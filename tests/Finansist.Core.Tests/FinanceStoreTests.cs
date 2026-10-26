@@ -15,6 +15,39 @@ public sealed class FinanceStoreTests : IDisposable
     public void Dispose() => Directory.Delete(directory, true);
 
     [Fact]
+    public async Task ExistingDatabaseWithoutBaselineStartsTodayWithoutChangingLedger()
+    {
+        var account = NewAccount("Синтетическая карта", 500);
+        await Store().SaveAccountAsync(account);
+        var before = await Store().SaveOperationAsync(Operation(account, OperationKind.Expense, 100));
+        using (var db = new TestConnectionFactory(DatabasePath).Open())
+            db.Execute("DELETE FROM app_settings WHERE key = ?", "balance_known_from");
+        var after = await Store().ReadFinanceAsync();
+        Assert.Equal(DateOnly.FromDateTime(DateTime.Today), after.BalanceKnownFrom);
+        Assert.Equal(before.TotalMinor, after.TotalMinor);
+        Assert.Equal(before.Operations.ToArray(), after.Operations.ToArray());
+    }
+
+    [Fact]
+    public async Task BalanceHistoryBaselinePersistsAndChangesOnlyWithAccountBalances()
+    {
+        var account = NewAccount("Тестовый", 500);
+        var store = Store(); var snapshot = await store.SaveAccountAsync(account);
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        Assert.Equal(today, snapshot.BalanceKnownFrom);
+        Assert.Equal(today, (await Store().ReadFinanceAsync()).BalanceKnownFrom);
+        // Simulate an older tracking date without waiting a day.
+        using (var db = new TestConnectionFactory(DatabasePath).Open())
+            db.Execute("UPDATE app_settings SET value = ? WHERE key = ?", "2025-01-01", "balance_known_from");
+        var renamed = await store.SaveAccountAsync(account with { Name = "Переименован" });
+        Assert.Equal(new DateOnly(2025, 1, 1), renamed.BalanceKnownFrom);
+        var operation = await store.SaveOperationAsync(Operation(account, OperationKind.Income, 100));
+        Assert.Equal(new DateOnly(2025, 1, 1), operation.BalanceKnownFrom);
+        Assert.Equal(today, (await store.SaveAccountAsync(account with { OpeningMinor = 600 })).BalanceKnownFrom);
+        Assert.Equal(700, (await Store().ReadFinanceAsync()).TotalMinor);
+    }
+
+    [Fact]
     public async Task AccountLayout_SurvivesReopenAndRenameWithoutChangingBalances()
     {
         var store = Store(); var first = NewAccount("Альфа", 100); var second = NewAccount("Бета", 200);
