@@ -130,3 +130,8 @@ SaveAccountLayoutAsync проверяет точное соответствие 
 FinanceViewModel содержит Accounts, VisibleAccounts, IsAccountsExpanded и команды ToggleAccounts/MoveAccount. В свёрнутом виде VisibleAccounts содержит первый счёт, в раскрытом — все. Новый порядок и состояние применяются в UI после успешного сохранения. Ошибка сохраняет прежний вид и показывает сообщение.
 
 FinancePage использует MAUI DragGestureRecognizer на ручке и DropGestureRecognizer на карточке. Code-behind передаёт ID и положение относительно середины карточки команде ViewModel; порядок и SQLite остаются в Core. Перетаскивание разрешено только в раскрытом списке и при отсутствии записи. Пакет перетаскивания содержит только локальный ID счёта. Финансовые операции и остатки не меняются.
+
+
+### Исправление событий MAUI 10.0.110, версия 0.3.4
+
+В локальной Android DLL SendDragStarting вызывает DragStarting с исходным View, SendDrop вызывает Drop с Parent распознавателя. Обработчики FinancePage 0.3.3 ошибочно проверяли тип отправителя как DragGestureRecognizer/DropGestureRecognizer. В 0.3.4 GestureView принимает VisualElement напрямую либо распознаватель с VisualElement в Parent; BindingContext и позиция берутся с найденного элемента. Это устраняет программную отмену захвата до нативного StartDragAndDrop и потерю события отпускания.

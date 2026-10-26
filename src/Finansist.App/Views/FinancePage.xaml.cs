@@ -12,13 +12,21 @@ public partial class FinancePage : ContentPage
         BindingContext = viewModel;
     }
     private const string AccountDragKey = "FinansistAccountId";
+    // MAUI 10 sends the source/target View, while older releases can send the recognizer.
+    private static VisualElement? GestureView(object? sender) => sender switch
+    {
+        VisualElement view => view,
+        GestureRecognizer { Parent: VisualElement view } => view,
+        _ => null
+    };
     private void OnAccountDragStarting(object? sender, DragStartingEventArgs args)
     {
-        if (!ViewModel.CanReorderAccounts || sender is not DragGestureRecognizer { BindingContext: AccountBalance account })
+        if (!ViewModel.CanReorderAccounts || GestureView(sender)?.BindingContext is not AccountBalance account)
         {
             args.Cancel = true; return;
         }
         args.Data.Properties[AccountDragKey] = account.Id;
+        args.Data.Text = "Переместить счёт";
     }
     private void OnAccountDragOver(object? sender, DragEventArgs args)
     {
@@ -28,9 +36,10 @@ public partial class FinancePage : ContentPage
     private async void OnAccountDrop(object? sender, DropEventArgs args)
     {
         args.Handled = true;
-        if (!ViewModel.CanReorderAccounts || sender is not DropGestureRecognizer { BindingContext: AccountBalance target } drop ||
+        var view = GestureView(sender);
+        if (!ViewModel.CanReorderAccounts || view?.BindingContext is not AccountBalance target ||
             !args.Data.Properties.TryGetValue(AccountDragKey, out var source) || source is not string sourceId) return;
-        var after = drop.Parent is VisualElement view && args.GetPosition(view) is { } position && position.Y > view.Height / 2;
+        var after = args.GetPosition(view) is { } position && position.Y > view.Height / 2;
         await ViewModel.MoveAccountCommand.ExecuteAsync(new AccountMove(sourceId, target.Id, after));
     }
     protected override async void OnAppearing()

@@ -11,3 +11,6 @@ TestResults/
 *.log
 .vs/
 .idea/
+
+# User-provided attachments may contain private screenshots
+.codex-attachments/
