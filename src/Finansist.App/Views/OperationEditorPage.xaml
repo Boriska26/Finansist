@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ xmlns:vm="clr-namespace:Finansist.Core.ViewModels;assembly=Finansist.Core"
+ xmlns:finance="clr-namespace:Finansist.Core.Finance;assembly=Finansist.Core"
+ x:Class="Finansist.App.Views.OperationEditorPage" x:DataType="vm:OperationEditorViewModel"
+ Title="{Binding Title}" Shell.NavBarIsVisible="False" SafeAreaEdges="All">
+ <Grid RowDefinitions="*,Auto">
+  <ScrollView x:Name="FormScroll"><VerticalStackLayout Padding="20" Spacing="16">
+   <Label Text="{Binding Title}" Style="{StaticResource Title}" />
+   <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />
+   <Border IsVisible="{Binding HasError}"><VerticalStackLayout Spacing="10"><Label Text="{Binding ErrorMessage}" /><Button Text="Повторить загрузку" Command="{Binding LoadCommand}" Style="{StaticResource Secondary}" /></VerticalStackLayout></Border>
+   <VerticalStackLayout Spacing="10" IsEnabled="{Binding IsIdle}">
+    <Label Text="Тип операции" FontAttributes="Bold" /><Picker ItemsSource="{Binding Kinds}" SelectedIndex="{Binding KindIndex}" Title="Расход, доход или перевод" />
+    <Label Text="Сумма, ₽" FontAttributes="Bold" /><Entry Text="{Binding Amount}" Keyboard="Numeric" MaxLength="20" Placeholder="0,00" SemanticProperties.Description="Сумма операции в рублях" />
+    <Label Text="{Binding AccountLabel}" FontAttributes="Bold" />
+    <Picker ItemsSource="{Binding Accounts}" SelectedItem="{Binding SelectedAccount}" ItemDisplayBinding="{Binding DisplayName, x:DataType=finance:Account}" Title="Выберите счёт" />
+    <VerticalStackLayout IsVisible="{Binding IsTransfer}" Spacing="10">
+     <Label Text="На счёт" FontAttributes="Bold" /><Picker ItemsSource="{Binding Accounts}" SelectedItem="{Binding DestinationAccount}" ItemDisplayBinding="{Binding DisplayName, x:DataType=finance:Account}" Title="Выберите счёт получателя" />
+     <Label Text="Перевод не меняет общую сумму денег и не считается доходом или расходом." Style="{StaticResource Muted}" />
+    </VerticalStackLayout>
+    <Label Text="Дата" FontAttributes="Bold" /><DatePicker Date="{Binding Date}" MaximumDate="{Binding Today}" Format="dd.MM.yyyy" />
+    <VerticalStackLayout IsVisible="{Binding IsNotTransfer}" Spacing="10">
+     <Label Text="Категория" FontAttributes="Bold" /><Entry Text="{Binding Category}" MaxLength="60" Placeholder="Например, Продукты или Зарплата" />
+    </VerticalStackLayout>
+    <VerticalStackLayout IsVisible="{Binding IsIncome}" Spacing="8">
+     <Label Text="После сохранения предложить распределение" /><Switch IsToggled="{Binding DistributeIncome}" />
+    </VerticalStackLayout>
+    <VerticalStackLayout IsVisible="{Binding HasBudgetChoices}" Spacing="8">
+     <Label Text="Из какой части бюджета?" FontAttributes="Bold" />
+     <Picker ItemsSource="{Binding ExpenseChoices}" SelectedItem="{Binding ExpenseChoice}" ItemDisplayBinding="{Binding Label, x:DataType=vm:ExpenseChoice}" />
+     <Label Text="Для аренды или рассрочки выберите конкретный платёж — тогда он не будет зарезервирован повторно." Style="{StaticResource Muted}" />
+    </VerticalStackLayout>
+    <Label Text="Примечание (необязательно)" FontAttributes="Bold" /><Editor Text="{Binding Note}" MaxLength="300" AutoSize="TextChanges" MinimumHeightRequest="80" Placeholder="Что стоит запомнить" />
+    <Button Text="Удалить операцию" Style="{StaticResource Secondary}" IsVisible="{Binding IsExisting}" Command="{Binding DeleteCommand}" Margin="0,12,0,0" />
+   </VerticalStackLayout>
+  </VerticalStackLayout></ScrollView>
+  <Grid Grid.Row="1" Padding="16,10" ColumnDefinitions="*,*" ColumnSpacing="10" IsEnabled="{Binding IsIdle}" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#182620}">
+   <Button Text="Отмена" Style="{StaticResource Secondary}" Command="{Binding CancelCommand}" />
+   <Button Grid.Column="1" Text="Сохранить" Command="{Binding SaveCommand}" />
+  </Grid>
+ </Grid>
+</ContentPage>

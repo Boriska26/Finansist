@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ xmlns:vm="clr-namespace:Finansist.Core.ViewModels;assembly=Finansist.Core"
+ xmlns:views="clr-namespace:Finansist.App.Views" x:Class="Finansist.App.Views.SettingsPage" x:DataType="vm:AppViewModel" Title="Настройки" SafeAreaEdges="Container">
+ <ScrollView><VerticalStackLayout Padding="24,24,24,28" Spacing="20">
+  <VerticalStackLayout Spacing="6"><Label Text="ПОД ВАШ РИТМ" Style="{StaticResource Muted}" CharacterSpacing="2" /><Label Text="Настройки" Style="{StaticResource Title}" /></VerticalStackLayout>
+  <views:StorageStatusView />
+  <Border><VerticalStackLayout Spacing="10"><Label Text="Данные на устройстве" Style="{StaticResource Section}" /><Label Text="{Binding StorageStatus}" Style="{StaticResource Muted}" /><Label Text="Приложение работает без интернета. Серверная синхронизация появится на этапе 6." Style="{StaticResource Muted}" /><Label Text="Удаление приложения удалит локальные данные. Резервное копирование пока не реализовано." Style="{StaticResource Muted}" /></VerticalStackLayout></Border>
+  <Border><VerticalStackLayout Spacing="12"><Label Text="Оформление" Style="{StaticResource Section}" /><Label Text="{Binding ThemeStatus, StringFormat='Выбрано: {0}'}" Style="{StaticResource Muted}" SemanticProperties.Description="Текущая тема приложения" />
+   <VerticalStackLayout Spacing="10" IsEnabled="{Binding CanChangeTheme}">
+    <Button Text="Как на устройстве" Style="{StaticResource Secondary}" Command="{Binding SetThemeCommand}" CommandParameter="system" />
+    <Button Text="Светлая" Style="{StaticResource Secondary}" Command="{Binding SetThemeCommand}" CommandParameter="light" />
+    <Button Text="Тёмная" Style="{StaticResource Secondary}" Command="{Binding SetThemeCommand}" CommandParameter="dark" />
+   </VerticalStackLayout>
+   <Label Text="Выбор сохраняется автоматически в SQLite." Style="{StaticResource Muted}" />
+  </VerticalStackLayout></Border>
+  <Label Text="Финансист · 0.3.2
+Этап 3 · Android" Style="{StaticResource Muted}" HorizontalTextAlignment="Center" />
+ </VerticalStackLayout></ScrollView>
+</ContentPage>

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ xmlns:vm="clr-namespace:Finansist.Core.ViewModels;assembly=Finansist.Core"
+ xmlns:finance="clr-namespace:Finansist.Core.Finance;assembly=Finansist.Core"
+ x:Class="Finansist.App.Views.BudgetEditorPage" x:DataType="vm:BudgetEditorViewModel" Title="{Binding Title}" Shell.NavBarIsVisible="False" SafeAreaEdges="All">
+ <Grid RowDefinitions="*,Auto">
+  <ScrollView x:Name="FormScroll"><VerticalStackLayout Padding="20" Spacing="16">
+   <Label Text="{Binding Title}" Style="{StaticResource Title}" />
+   <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />
+   <Border IsVisible="{Binding HasError}"><VerticalStackLayout Spacing="8"><Label Text="{Binding ErrorMessage}" /><Button Text="Повторить загрузку" Command="{Binding LoadCommand}" /></VerticalStackLayout></Border>
+   <VerticalStackLayout IsEnabled="{Binding IsIdle}" Spacing="16">
+    <VerticalStackLayout IsVisible="{Binding IsAllocation}" Spacing="10">
+     <Label Text="{Binding IncomeText}" FontAttributes="Bold" />
+     <Label Text="До какого дня должны хватить деньги?" Style="{StaticResource Section}" />
+     <Label Text="Примерная дата следующей зарплаты или аванса. Время поступления не важно; дату можно поправить." Style="{StaticResource Muted}" />
+     <DatePicker Date="{Binding Until}" MinimumDate="{Binding Today}" MaximumDate="{Binding LastDate}" Format="dd.MM.yyyy" />
+     <Label Text="На какой отдельный счёт откладываете подушку?" FontAttributes="Bold" />
+     <Picker Title="Выберите счёт подушки" ItemsSource="{Binding Accounts}" SelectedItem="{Binding CushionAccount}" ItemDisplayBinding="{Binding DisplayName, x:DataType=finance:Account}" />
+     <Button Text="Добавить счёт, если его ещё нет" Command="{Binding AddAccountCommand}" Style="{StaticResource Secondary}" />
+    </VerticalStackLayout>
+    <Label Text="Что нужно оплатить в этот период?" Style="{StaticResource Section}" />
+    <Label Text="Укажите полную сумму каждого платежа. Уже выделенное и оплаченное по журналу учитывается автоматически. Продукты и транспорт можно указать одной примерной суммой." Style="{StaticResource Muted}" />
+    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Bills}" Spacing="12"><BindableLayout.ItemTemplate><DataTemplate x:DataType="vm:BudgetBillRow">
+     <Border><VerticalStackLayout Spacing="8">
+      <Entry Text="{Binding Name}" MaxLength="60" Placeholder="Название платежа" />
+      <Label Text="Сколько всего нужно, ₽" /><Entry Text="{Binding Amount}" Keyboard="Numeric" MaxLength="20" />
+      <Label Text="К какой дате?" /><DatePicker Date="{Binding Due}" Format="dd.MM.yyyy" />
+      <Label Text="{Binding Status}" Style="{StaticResource Muted}" />
+      <HorizontalStackLayout Spacing="10"><Switch IsToggled="{Binding Monthly}" /><Label Text="Спрашивать каждый месяц" VerticalOptions="Center" /></HorizontalStackLayout>
+      <Label Text="В этот раз деньги больше не нужны / уже оплачено" /><Switch IsToggled="{Binding Settled}" />
+      <Label Text="Если рассрочка закончилась, также выключите повторение. Расход в журнале эта отметка не создаёт." Style="{StaticResource Muted}" />
+     </VerticalStackLayout></Border>
+    </DataTemplate></BindableLayout.ItemTemplate></VerticalStackLayout>
+    <Button Text="У меня есть рассрочка" Command="{Binding AddInstallmentCommand}" Style="{StaticResource Secondary}" />
+    <Button Text="+ Другой обязательный платёж" Command="{Binding AddBillCommand}" Style="{StaticResource Secondary}" />
+    <Button Text="Показать три суммы" Command="{Binding CalculateCommand}" IsVisible="{Binding IsAllocation}" />
+    <VerticalStackLayout IsVisible="{Binding HasProposal}" Spacing="12">
+     <Border><VerticalStackLayout><Label Text="1. Перевести в подушку" /><Label Text="{Binding Savings}" FontSize="28" FontAttributes="Bold" /></VerticalStackLayout></Border>
+     <Border><VerticalStackLayout><Label Text="2. Оставить на необходимое" /><Label Text="{Binding Necessary}" FontSize="28" FontAttributes="Bold" /></VerticalStackLayout></Border>
+     <Border><VerticalStackLayout><Label Text="3. Можно потратить на себя" /><Label Text="{Binding Joy}" FontSize="28" FontAttributes="Bold" /></VerticalStackLayout></Border>
+     <Label Text="{Binding Explanation}" />
+     <Label Text="Это предложение, а не перевод. Подушка увеличится, когда вы запишете реальный перевод на её счёт." Style="{StaticResource Muted}" />
+    </VerticalStackLayout>
+   </VerticalStackLayout>
+  </VerticalStackLayout></ScrollView>
+  <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="10" Padding="16,10" IsEnabled="{Binding IsIdle}" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#182620}">
+   <Button Text="Назад" Command="{Binding CancelCommand}" Style="{StaticResource Secondary}" /><Button Grid.Column="1" Text="{Binding SaveLabel}" Command="{Binding SaveCommand}" />
+  </Grid>
+ </Grid>
+</ContentPage>

@@ -1,0 +1,4 @@
+{
+  "markdown.validate.enabled": false,
+  "dotnet.defaultSolution": "Finansist.slnx"
+}

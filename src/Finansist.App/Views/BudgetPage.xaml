@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ xmlns:vm="clr-namespace:Finansist.Core.ViewModels;assembly=Finansist.Core" xmlns:views="clr-namespace:Finansist.App.Views"
+ xmlns:finance="clr-namespace:Finansist.Core.Finance;assembly=Finansist.Core"
+ x:Class="Finansist.App.Views.BudgetPage" x:Name="Page" x:DataType="vm:BudgetViewModel" Title="Бюджет" SafeAreaEdges="Container">
+ <Grid RowDefinitions="*,Auto">
+  <ScrollView><VerticalStackLayout Padding="20" Spacing="16">
+   <Label Text="Деньги по местам" Style="{StaticResource Title}" />
+   <Label Text="Сначала запишите полученную зарплату или аванс в «Финансах». Затем оставьте деньги на необходимое, подушку и себя." Style="{StaticResource Muted}" />
+   <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />
+   <Border IsVisible="{Binding HasError}"><VerticalStackLayout><Label Text="{Binding ErrorMessage}" /><Button Text="Обновить" Command="{Binding RefreshCommand}" /></VerticalStackLayout></Border>
+   <Label Text="Осталось из распределённого" Style="{StaticResource Section}" />
+   <Border><VerticalStackLayout Spacing="6"><Label Text="Оставить на необходимое" /><Label Text="{Binding Necessary}" FontSize="28" FontAttributes="Bold" /></VerticalStackLayout></Border>
+   <Border><VerticalStackLayout Spacing="6"><Label Text="Ещё перевести в подушку" /><Label Text="{Binding Savings}" FontSize="28" FontAttributes="Bold" /></VerticalStackLayout></Border>
+   <Border><VerticalStackLayout Spacing="6"><Label Text="Можно потратить на себя" /><Label Text="{Binding Joy}" FontSize="28" FontAttributes="Bold" /></VerticalStackLayout></Border>
+   <Label Text="{Binding Warning}" TextColor="{AppThemeBinding Light=#9B321B, Dark=#FFBCA8}" />
+   <Label Text="Уже на счёте подушки" Style="{StaticResource Section}" /><Label Text="{Binding Cushion}" FontSize="24" />
+   <VerticalStackLayout IsVisible="{Binding CanTransfer}" Spacing="10">
+    <Label Text="После перевода в банке запишите его здесь. Если уже внесли перевод в журнал, повторно добавлять не нужно." Style="{StaticResource Muted}" />
+    <Picker Title="С какой карты перевели?" ItemsSource="{Binding Sources}" SelectedItem="{Binding TransferSource}" ItemDisplayBinding="{Binding DisplayName, x:DataType=finance:Account}" />
+    <Button Text="Записать перевод в подушку" Command="{Binding TransferCommand}" IsEnabled="{Binding IsIdle}" />
+   </VerticalStackLayout>
+   <Label Text="Полученные доходы без распределения" Style="{StaticResource Section}" IsVisible="{Binding HasPending}" />
+   <VerticalStackLayout BindableLayout.ItemsSource="{Binding Incomes}" Spacing="10"><BindableLayout.ItemTemplate><DataTemplate x:DataType="vm:IncomeChoice">
+    <Border><VerticalStackLayout Spacing="8"><Label Text="{Binding Label}" /><Button Text="Распределить" Command="{Binding ViewModel.AllocateCommand, Source={x:Reference Page}, x:DataType=views:BudgetPage}" CommandParameter="{Binding .}" /></VerticalStackLayout></Border>
+   </DataTemplate></BindableLayout.ItemTemplate></VerticalStackLayout>
+   <Label Text="История распределений" Style="{StaticResource Section}" IsVisible="{Binding HasHistory}" />
+   <VerticalStackLayout BindableLayout.ItemsSource="{Binding History}" Spacing="10"><BindableLayout.ItemTemplate><DataTemplate x:DataType="vm:AllocationRow">
+    <Border><VerticalStackLayout Spacing="8"><Label Text="{Binding Title}" FontAttributes="Bold" /><Label Text="{Binding Details}" /><Button Text="Отменить распределение" Style="{StaticResource Secondary}" Command="{Binding ViewModel.CancelAllocationCommand, Source={x:Reference Page}, x:DataType=views:BudgetPage}" CommandParameter="{Binding .}" /></VerticalStackLayout></Border>
+   </DataTemplate></BindableLayout.ItemTemplate></VerticalStackLayout>
+  </VerticalStackLayout></ScrollView>
+  <Button Grid.Row="1" Text="Аренда, рассрочка и другие платежи" Command="{Binding PaymentsCommand}" IsEnabled="{Binding IsIdle}" Margin="16,10" />
+ </Grid>
+</ContentPage>

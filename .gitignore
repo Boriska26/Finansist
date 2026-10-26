@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+.cache/
+artifacts/
+TestResults/
+*.db
+*.db-*
+*.sqlite*
+*.keystore
+*.jks
+*.log
+.vs/
+.idea/

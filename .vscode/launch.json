@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Финансист — Android по Wi-Fi",
+      "type": "maui",
+      "request": "launch",
+      "configuration": "Debug",
+      "targetFramework": "net10.0-android",
+      "preLaunchTask": "maui: Build"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Finansist.App</RootNamespace>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <ApplicationTitle>Финансист</ApplicationTitle>
+    <ApplicationId>ru.finansist.personal</ApplicationId>
+    <ApplicationDisplayVersion>0.3.2</ApplicationDisplayVersion>
+    <ApplicationVersion>6</ApplicationVersion>
+    <SupportedOSPlatformVersion>23.0</SupportedOSPlatformVersion>
+    <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
+    <AndroidPackageFormats>apk</AndroidPackageFormats>
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <MauiStrictXamlCompilation>true</MauiStrictXamlCompilation>
+    <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
+  </PropertyGroup>
+  <ItemGroup>
+    <MauiIcon Include="Resources/AppIcon/appicon.svg" ForegroundFile="Resources/AppIcon/appiconfg.svg" Color="#123C34" />
+    <MauiSplashScreen Include="Resources/Splash/splash.svg" Color="#123C34" BaseSize="128,128" />
+    <MauiImage Include="Resources/Images/*" />
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.110" />
+    <ProjectReference Include="../Finansist.Core/Finansist.Core.csproj" />
+  </ItemGroup>
+</Project>

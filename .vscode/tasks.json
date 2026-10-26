@@ -1,0 +1,37 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "maui: Build",
+      "type": "maui",
+      "targetFramework": "net10.0-android",
+      "configuration": "Debug",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Финансист: подключить телефон по Wi-Fi",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/install-wifi.sh",
+      "args": [
+        "--connect-only"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Финансист: установить APK по Wi-Fi",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/install-wifi.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated"
+      }
+    }
+  ]
+}

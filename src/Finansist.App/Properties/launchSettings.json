@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Finansist Android": {
+      "commandName": "Project",
+      "nativeDebugging": false
+    }
+  }
+}

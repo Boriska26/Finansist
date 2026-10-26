@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ xmlns:vm="clr-namespace:Finansist.Core.ViewModels;assembly=Finansist.Core"
+ xmlns:views="clr-namespace:Finansist.App.Views" x:Class="Finansist.App.Views.ShoppingPage" x:DataType="vm:AppViewModel" Title="Покупки" SafeAreaEdges="Container">
+ <ScrollView><VerticalStackLayout Padding="24,24,24,28" Spacing="20">
+  <VerticalStackLayout Spacing="6"><Label Text="ПОКУПКИ БЕЗ ЛИШНЕГО" Style="{StaticResource Muted}" CharacterSpacing="2" /><Label Text="Список под рукой" Style="{StaticResource Title}" /></VerticalStackLayout>
+  <views:StorageStatusView />
+  <Border><VerticalStackLayout Spacing="16"><Label Text="Ваши списки покупок" Style="{StaticResource Section}" /><Label Text="Пока здесь пусто" FontSize="26" FontAttributes="Bold" /><Label Text="На этапе 4 здесь можно будет составлять списки, отмечать купленное и видеть примерную стоимость корзины." Style="{StaticResource Muted}" /></VerticalStackLayout></Border>
+  <Border><VerticalStackLayout Spacing="12"><Label Text="Каталог продуктов" Style="{StaticResource Section}" /><Label Text="Название, количество и последняя известная цена — без привязки к магазину." Style="{StaticResource Muted}" /><Label Text="Появится на этапе 4" FontAttributes="Bold" /></VerticalStackLayout></Border>
+  <Label Text="Раздел ещё в разработке. Списки и продукты пока не создаются." Style="{StaticResource Muted}" />
+ </VerticalStackLayout></ScrollView>
+</ContentPage>

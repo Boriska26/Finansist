@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ xmlns:vm="clr-namespace:Finansist.Core.ViewModels;assembly=Finansist.Core"
+ x:Class="Finansist.App.Views.AccountEditorPage" x:DataType="vm:AccountEditorViewModel"
+ Title="{Binding Title}" Shell.NavBarIsVisible="False" SafeAreaEdges="All">
+ <Grid RowDefinitions="*,Auto">
+  <ScrollView x:Name="FormScroll"><VerticalStackLayout Padding="20" Spacing="16">
+   <Label Text="{Binding Title}" Style="{StaticResource Title}" />
+   <Label Text="Все счета в рублях. Название и начальный остаток можно изменить." Style="{StaticResource Muted}" />
+   <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />
+   <Border IsVisible="{Binding HasError}"><Label Text="{Binding ErrorMessage}" /></Border>
+   <VerticalStackLayout Spacing="10" IsEnabled="{Binding IsIdle}">
+    <Label Text="Название счёта" FontAttributes="Bold" />
+    <Entry Text="{Binding Name}" MaxLength="60" Placeholder="Например, Основная карта" SemanticProperties.Description="Название счёта" />
+    <Label Text="Начальный остаток, ₽" FontAttributes="Bold" />
+    <Entry Text="{Binding OpeningAmount}" MaxLength="20" Placeholder="0,00" SemanticProperties.Description="Начальный остаток в рублях" />
+    <Label Text="Остаток до внесённых операций. Может быть отрицательным. Его изменение пересчитает текущий баланс." Style="{StaticResource Muted}" />
+    <Button Text="Удалить счёт" Style="{StaticResource Secondary}" IsVisible="{Binding IsExisting}" Command="{Binding DeleteCommand}" Margin="0,20,0,0" />
+   </VerticalStackLayout>
+  </VerticalStackLayout></ScrollView>
+  <Grid Grid.Row="1" Padding="16,10" ColumnDefinitions="*,*" ColumnSpacing="10" IsEnabled="{Binding IsIdle}" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#182620}">
+   <Button Text="Отмена" Style="{StaticResource Secondary}" Command="{Binding CancelCommand}" />
+   <Button Grid.Column="1" Text="Сохранить" Command="{Binding SaveCommand}" />
+  </Grid>
+ </Grid>
+</ContentPage>

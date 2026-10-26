@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Finansist.App/Finansist.App.csproj" />
+    <Project Path="src/Finansist.Core/Finansist.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Finansist.Core.Tests/Finansist.Core.Tests.csproj" />
+  </Folder>
+</Solution>

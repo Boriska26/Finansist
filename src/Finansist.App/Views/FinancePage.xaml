@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ xmlns:vm="clr-namespace:Finansist.Core.ViewModels;assembly=Finansist.Core"
+ xmlns:finance="clr-namespace:Finansist.Core.Finance;assembly=Finansist.Core"
+ xmlns:views="clr-namespace:Finansist.App.Views" x:Class="Finansist.App.Views.FinancePage"
+ x:Name="Page" x:DataType="vm:FinanceViewModel" Title="Финансы" SafeAreaEdges="Container">
+ <Grid RowDefinitions="*,Auto">
+  <CollectionView ItemsSource="{Binding Operations}" SelectionMode="None">
+   <CollectionView.Header>
+    <VerticalStackLayout Padding="20,20,20,12" Spacing="16">
+     <Label Text="Мои финансы" Style="{StaticResource Title}" />
+     <views:StorageStatusView BindingContext="{Binding AppState}" />
+     <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />
+     <Border IsVisible="{Binding HasError}"><VerticalStackLayout Spacing="12"><Label Text="{Binding ErrorMessage}" /><Button Text="Повторить загрузку" Command="{Binding RefreshCommand}" /></VerticalStackLayout></Border>
+     <Border BackgroundColor="{AppThemeBinding Light=#123C34, Dark=#254D3D}" StrokeThickness="0">
+      <VerticalStackLayout Spacing="8"><Label Text="Всего на счетах" TextColor="#D4EDDF" /><Label Text="{Binding TotalText}" FontSize="32" FontAttributes="Bold" TextColor="White" /><Label Text="Текущий баланс · российские рубли" TextColor="#D4EDDF" FontSize="14" /></VerticalStackLayout>
+     </Border>
+     <Border IsVisible="{Binding IsEmpty}"><VerticalStackLayout Spacing="8"><Label Text="Добавьте первый счёт" Style="{StaticResource Section}" /><Label Text="Например, наличные или банковскую карту. Укажите текущий остаток — он станет отправной точкой учёта." Style="{StaticResource Muted}" /></VerticalStackLayout></Border>
+     <Button Text="Пришла зарплата / аванс" Command="{Binding SalaryCommand}" IsEnabled="{Binding HasAccounts}" />
+     <Label Text="Счета" Style="{StaticResource Section}" IsVisible="{Binding HasAccounts}" />
+     <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding Accounts}">
+      <BindableLayout.ItemTemplate><DataTemplate x:DataType="finance:AccountBalance">
+       <Border Padding="16"><VerticalStackLayout Spacing="4">
+        <Label Text="{Binding Name}" FontAttributes="Bold" /><Label Text="{Binding BalanceText}" FontSize="23" />
+        <Button Text="Изменить счёт" Style="{StaticResource Secondary}" Command="{Binding ViewModel.EditAccountCommand, Source={x:Reference Page}, x:DataType=views:FinancePage}" CommandParameter="{Binding .}" />
+       </VerticalStackLayout></Border>
+      </DataTemplate></BindableLayout.ItemTemplate>
+     </VerticalStackLayout>
+     <Label Text="Операции" Style="{StaticResource Section}" />
+     <Label Text="Операций пока нет. Начальный остаток счёта не считается доходом." Style="{StaticResource Muted}" IsVisible="{Binding NoOperations}" />
+    </VerticalStackLayout>
+   </CollectionView.Header>
+   <CollectionView.ItemTemplate><DataTemplate x:DataType="vm:OperationRow">
+    <Border Margin="20,0,20,10" Padding="16"><VerticalStackLayout Spacing="6">
+     <Label Text="{Binding Title}" FontAttributes="Bold" /><Label Text="{Binding AmountText}" FontSize="23" FontAttributes="Bold" />
+     <Label Text="{Binding Details}" Style="{StaticResource Muted}" /><Label Text="{Binding Note}" IsVisible="{Binding HasNote}" />
+     <Button Text="Изменить операцию" Style="{StaticResource Secondary}" Command="{Binding ViewModel.EditOperationCommand, Source={x:Reference Page}, x:DataType=views:FinancePage}" CommandParameter="{Binding .}" />
+    </VerticalStackLayout></Border>
+   </DataTemplate></CollectionView.ItemTemplate>
+   <CollectionView.Footer><VerticalStackLayout Padding="20,8,20,16" Spacing="16">
+    <Button Text="Показать ещё" Command="{Binding LoadMoreCommand}" IsVisible="{Binding HasMore}" Style="{StaticResource Secondary}" />
+    <Label Text="После зарплаты распределите деньги на необходимое, подушку и себя на вкладке «Бюджет»." Style="{StaticResource Muted}" />
+   </VerticalStackLayout></CollectionView.Footer>
+  </CollectionView>
+  <Grid Grid.Row="1" Padding="16,10" ColumnDefinitions="*,*" ColumnSpacing="10" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#182620}" IsEnabled="{Binding IsIdle}">
+   <Button Text="+ Счёт" Command="{Binding AddAccountCommand}" Style="{StaticResource Secondary}" />
+   <Button Grid.Column="1" Text="+ Операция" Command="{Binding AddOperationCommand}" IsEnabled="{Binding HasAccounts}" />
+  </Grid>
+ </Grid>
+</ContentPage>
