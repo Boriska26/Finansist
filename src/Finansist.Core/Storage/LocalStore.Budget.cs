@@ -42,7 +42,7 @@ public sealed partial class LocalStore
         var state = ReadBudgetState(db);
         BudgetCalculator.Require(state.Revision == revision, "Платежи изменились. Откройте экран заново.");
         BudgetCalculator.ValidateBills(bills);
-        BudgetCalculator.Require(state.Document.Bills.All(old => bills.Any(b => b.Id == old.Id)), "Существующие платежи нельзя удалить. Отметьте, что деньги больше не нужны.");
+        BudgetCalculator.Require(state.Document.Bills.All(old => bills.Any(b => b.Id == old.Id)), "Для удаления существующего платежа используйте кнопку «Удалить платёж».");
         WriteBudget(db, state.Document with { Bills = bills.ToList() });
         return ReadBudgetState(db);
     });
@@ -51,6 +51,20 @@ public sealed partial class LocalStore
     {
         var state = ReadBudgetState(db);
         WriteBudget(db, state.Document with { Allocations = state.Document.Allocations.Where(a => a.IncomeId != incomeId).ToList() });
+        return ReadBudgetState(db);
+    });
+
+    public Task<BudgetState> DeleteBillAsync(string billId, long revision) => RunAsync(db =>
+    {
+        var state = ReadBudgetState(db);
+        BudgetCalculator.Require(state.Revision == revision, "Платежи изменились. Откройте экран заново перед удалением.");
+        var bill = state.Document.Bills.SingleOrDefault(b => b.Id == billId);
+        BudgetCalculator.Require(bill is not null, "Платёж уже удалён или не найден. Обновите экран.");
+        var series = bill!.SeriesId ?? bill.Id;
+        // Keep IDs and payment links for history; stop all occurrences of this obligation.
+        var bills = state.Document.Bills.Select(b => b.Id == billId || b.SeriesId == series
+            ? b with { Archived = true, Settled = true, Monthly = false } : b).ToList();
+        WriteBudget(db, state.Document with { Bills = bills });
         return ReadBudgetState(db);
     });
 
@@ -63,6 +77,9 @@ public sealed partial class LocalStore
             BudgetCalculator.Require(purpose.OperationId == operation.Id && operation.Kind == OperationKind.Expense,
                 "Назначение бюджета указывается только для расхода.");
             BudgetCalculator.Require(purpose.BillId is null || purpose.Necessary && document.Bills.Any(b => b.Id == purpose.BillId), "Выберите существующий обязательный платёж.");
+            BudgetCalculator.Require(purpose.BillId is null || !document.Bills.Single(b => b.Id == purpose.BillId).Archived ||
+                document.Purposes.Any(p => p.OperationId == operation.Id && p.BillId == purpose.BillId),
+                "Этот платёж удалён. Для нового расхода выберите другое назначение.");
             BudgetCalculator.Require(operation.AccountId != document.CushionAccountId || purpose.BillId is null,
                 "Для оплаты из подушки сначала запишите перевод на основную карту.");
             purposes.Add(purpose);

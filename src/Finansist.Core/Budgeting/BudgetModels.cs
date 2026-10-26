@@ -3,7 +3,7 @@ using Finansist.Core.Finance;
 namespace Finansist.Core.Budgeting;
 
 public sealed record BudgetBill(string Id, string Name, DateOnly Due, long AmountMinor, bool Monthly = false,
-    string? SeriesId = null, bool Settled = false);
+    string? SeriesId = null, bool Settled = false, bool Archived = false);
 public sealed record BillFunding(string BillId, long AmountMinor, long PaidAtFundingMinor = 0);
 public sealed record IncomeAllocation(string IncomeId, string AccountId, long OriginalMinor, DateOnly IncomeDate,
     DateOnly Until, long AvailableMinor, long NecessaryMinor, long SavingsMinor, long JoyMinor,
@@ -25,6 +25,7 @@ public interface IBudgetStore
 {
     Task<BudgetState> ReadBudgetAsync();
     Task<BudgetState> SaveBillsAsync(IReadOnlyList<BudgetBill> bills, long revision);
+    Task<BudgetState> DeleteBillAsync(string billId, long revision);
     Task<BudgetState> AllocateAsync(string incomeId, string cushionAccountId, DateOnly until,
         IReadOnlyList<BudgetBill> bills, string fingerprint);
     Task<BudgetState> CancelAllocationAsync(string incomeId);

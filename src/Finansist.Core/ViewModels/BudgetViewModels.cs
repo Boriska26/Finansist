@@ -99,6 +99,8 @@ public partial class BudgetEditorViewModel(IBudgetStore store, IBudgetNavigation
     public string Title => PaymentsOnly ? "Обязательные расходы" : "Распределим поступление";
     public string SaveLabel => PaymentsOnly ? "Сохранить платежи" : "Подтвердить три суммы";
     public ObservableCollection<BudgetBillRow> Bills { get; } = [];
+    public bool NoBills => Bills.Count == 0;
+    [ObservableProperty] private string paymentNotice = "";
     public ObservableCollection<Account> Accounts { get; } = [];
     [ObservableProperty] private Account? cushionAccount;
     [ObservableProperty] private DateTime? until = DateTime.Today.AddDays(14);
@@ -131,24 +133,24 @@ public partial class BudgetEditorViewModel(IBudgetStore store, IBudgetNavigation
             IncomeText = $"Получено {Money.Format(income!.AmountMinor)} · {income.Date:dd.MM.yyyy}\nСумму будущей зарплаты знать не нужно.";
         }
         LoadAccounts();
-        foreach (var bill in state.Document.Bills.OrderBy(b => b.Due))
+        foreach (var bill in state.Document.Bills.Where(b => !b.Archived).OrderBy(b => b.Due))
         {
             // Paid history is kept in the document, but does not clutter the next salary form.
             if (!PaymentsOnly && (bill.Settled || BudgetCalculator.Paid(state, bill.Id) >= bill.AmountMinor) &&
                 (!bill.Monthly || state.Document.Bills.Any(b => b.SeriesId == bill.SeriesId && b.Due > bill.Due))) continue;
             AddRow(bill, $"Уже оплачено по журналу: {Money.Format(BudgetCalculator.Paid(state, bill.Id))}\nРанее выделено: {Money.Format(BudgetCalculator.Funded(state.Document, bill.Id))}. Повторно не резервируем.");
         }
-        if (Bills.Count == 0)
+        if (Bills.Count == 0 && state.Document.Bills.Count == 0)
         {
             AddRow(new(Guid.NewGuid().ToString(), "Продукты и транспорт", DateOnly.FromDateTime(Until!.Value), 0));
             AddRow(new(Guid.NewGuid().ToString(), "Аренда", DateOnly.FromDateTime(DateTime.Today), 0, true));
         }
-        var groceries = state.Document.Bills.Where(b => b.Name == "Продукты и транспорт" && !b.Monthly).OrderBy(b => b.Due).LastOrDefault();
+        var groceries = state.Document.Bills.Where(b => b.Name == "Продукты и транспорт" && !b.Monthly && !b.Archived).OrderBy(b => b.Due).LastOrDefault();
         if (!PaymentsOnly && groceries is not null && groceries.Due < DateOnly.FromDateTime(DateTime.Today) &&
             !Bills.Any(b => b.Name == groceries.Name && b.Due == Until))
             AddRow(groceries with { Id = Guid.NewGuid().ToString(), Due = DateOnly.FromDateTime(Until!.Value), Settled = false },
                 "Расходы на новый период. Поправьте примерную сумму.");
-        IsLoaded = true; AddOccurrences();
+        IsLoaded = true; AddOccurrences(); OnPropertyChanged(nameof(NoBills));
     });
     private void LoadAccounts()
     {
@@ -174,13 +176,13 @@ public partial class BudgetEditorViewModel(IBudgetStore store, IBudgetNavigation
                     other.Monthly = row.Monthly;
             }
         };
-        Bills.Add(row); Invalidate();
+        Bills.Add(row); Invalidate(); OnPropertyChanged(nameof(NoBills));
     }
     private void AddOccurrences()
     {
         if (state is null || Until is null || PaymentsOnly) return;
         var end = DateOnly.FromDateTime(Until.Value);
-        foreach (var group in state.Document.Bills.Where(b => b.SeriesId is not null).GroupBy(b => b.SeriesId))
+        foreach (var group in state.Document.Bills.Where(b => b.SeriesId is not null && !b.Archived).GroupBy(b => b.SeriesId))
         {
             var latest = group.OrderBy(b => b.Due).Last();
             if (!(Bills.FirstOrDefault(b => b.Id == latest.Id)?.Monthly ?? latest.Monthly)) continue;
@@ -203,6 +205,19 @@ public partial class BudgetEditorViewModel(IBudgetStore store, IBudgetNavigation
         edited.RemoveAll(b => b.AmountMinor == 0 && !state.Document.Bills.Any(old => old.Id == b.Id));
         return [..state.Document.Bills.Where(old => !edited.Any(b => b.Id == old.Id)), ..edited];
     }
+    [RelayCommand] private Task DeleteBillAsync(BudgetBillRow row) => RunAsync(async () =>
+    {
+        if (state is null || saved || !Bills.Contains(row)) return;
+        var series = row.SeriesId ?? row.Id;
+        var persisted = state.Document.Bills.FirstOrDefault(b => b.Id == row.Id || b.SeriesId == series);
+        if (!await navigation.ConfirmAsync("Удалить платёж и его повторения?",
+            "Он исчезнет из обязательных платежей. Неиспользованный резерв освободится. Реальные расходы останутся в журнале.")) return;
+        if (persisted is not null) state = await store.DeleteBillAsync(persisted.Id, state.Revision);
+        foreach (var item in Bills.Where(b => b.Id == row.Id || (b.SeriesId ?? b.Id) == series).ToArray())
+            Bills.Remove(item);
+        Invalidate(); OnPropertyChanged(nameof(NoBills));
+        PaymentNotice = "Платёж удалён. Расходы в журнале сохранены.";
+    });
     [RelayCommand] private void AddBill() => AddRow(new(Guid.NewGuid().ToString(), "Другой платёж", DateOnly.FromDateTime(DateTime.Today), 0));
     [RelayCommand] private void AddInstallment() => AddRow(new(Guid.NewGuid().ToString(), "Рассрочка", DateOnly.FromDateTime(DateTime.Today), 0, true));
     [RelayCommand] private Task AddAccountAsync() => RunAsync(navigation.AddAccountAsync);

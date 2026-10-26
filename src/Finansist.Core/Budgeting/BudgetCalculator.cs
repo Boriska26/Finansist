@@ -25,7 +25,7 @@ public static class BudgetCalculator
                 covered = checked(Math.Max(covered, funding.PaidAtFundingMinor) + funding.AmountMinor);
         return covered;
     }
-    public static long Needed(BudgetState state, BudgetBill bill) => bill.Settled ? 0 :
+    public static long Needed(BudgetState state, BudgetBill bill) => bill.Settled || bill.Archived ? 0 :
         Math.Max(0, bill.AmountMinor - Math.Max(Paid(state, bill.Id), Covered(state, bill.Id)));
 
     public static BudgetTotals Totals(BudgetState state)
@@ -48,7 +48,7 @@ public static class BudgetCalculator
         foreach (var bill in doc.Bills)
         {
             var paid = Paid(state, bill.Id);
-            var target = bill.Settled ? 0 : bill.AmountMinor;
+            var target = bill.Settled || bill.Archived ? 0 : bill.AmountMinor;
             var covered = Covered(state, bill.Id);
             released = checked(released + Math.Max(0, covered - Math.Max(paid, target)));
             protectedBills = checked(protectedBills + Math.Max(0, Math.Min(covered, target) - paid));
@@ -83,7 +83,7 @@ public static class BudgetCalculator
         var totals = Totals(working);
         var available = Math.Min(income!.AmountMinor, totals.FreeCashMinor);
         Require(available > 0, "Свободных денег для этого распределения нет: остаток уже потрачен или распределён.");
-        var pending = bills.Where(b => b.Due <= until && !b.Settled).OrderBy(b => b.Due).ThenBy(b => b.Id)
+        var pending = bills.Where(b => b.Due <= until && !b.Settled && !b.Archived).OrderBy(b => b.Due).ThenBy(b => b.Id)
             .Select(b => new BillFunding(b.Id, Needed(working, b), Paid(working, b.Id))).Where(f => f.AmountMinor > 0).ToArray();
         var required = pending.Sum(f => f.AmountMinor);
         var baseNecessary = available / 2;
@@ -131,6 +131,7 @@ public static class BudgetCalculator
                 "Укажите название платежа до 60 символов.");
             Require(bill.AmountMinor >= 0 && bill.AmountMinor <= Money.MaximumMinor, "Сумма платежа должна быть от нуля до 1 трлн ₽.");
             Require(bill.Due.Year is >= 2000 and <= 2100, "Проверьте дату платежа.");
+            Require(!bill.Archived || bill.Settled && !bill.Monthly, "Удалённый платёж должен быть закрыт без повторения.");
             Require(bill.SeriesId is null || Guid.TryParse(bill.SeriesId, out _), "Не удалось прочитать повторяющийся платёж.");
         }
         Require(bills.Where(b => b.SeriesId is not null).Select(b => (b.SeriesId, b.Due)).Distinct().Count() == bills.Count(b => b.SeriesId is not null),

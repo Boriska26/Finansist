@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
- xmlns:vm="clr-namespace:Finansist.Core.ViewModels;assembly=Finansist.Core"
+ xmlns:vm="clr-namespace:Finansist.Core.ViewModels;assembly=Finansist.Core" xmlns:views="clr-namespace:Finansist.App.Views"
  xmlns:finance="clr-namespace:Finansist.Core.Finance;assembly=Finansist.Core"
- x:Class="Finansist.App.Views.BudgetEditorPage" x:DataType="vm:BudgetEditorViewModel" Title="{Binding Title}" Shell.NavBarIsVisible="False" SafeAreaEdges="All">
+ x:Class="Finansist.App.Views.BudgetEditorPage" x:Name="Page" x:DataType="vm:BudgetEditorViewModel" Title="{Binding Title}" Shell.NavBarIsVisible="False" SafeAreaEdges="All">
  <Grid RowDefinitions="*,Auto">
   <ScrollView x:Name="FormScroll"><VerticalStackLayout Padding="20" Spacing="16">
    <Label Text="{Binding Title}" Style="{StaticResource Title}" />
@@ -19,16 +19,19 @@
      <Button Text="Добавить счёт, если его ещё нет" Command="{Binding AddAccountCommand}" Style="{StaticResource Secondary}" />
     </VerticalStackLayout>
     <Label Text="Что нужно оплатить в этот период?" Style="{StaticResource Section}" />
-    <Label Text="Укажите полную сумму каждого платежа. Уже выделенное и оплаченное по журналу учитывается автоматически. Продукты и транспорт можно указать одной примерной суммой." Style="{StaticResource Muted}" />
+    <Label Text="Для рассрочки укажите сумму одного ближайшего взноса и дату его оплаты. Например: 5 000 ₽ до 10 ноября. Общую сумму рассрочки и дату её окончания здесь вводить не нужно. Для аренды — платёж за один месяц, для продуктов — примерные расходы до следующего дохода." Style="{StaticResource Muted}" />
+    <Label Text="{Binding PaymentNotice}" />
+    <Label Text="Обязательных платежей нет. Добавьте нужные кнопками ниже." IsVisible="{Binding NoBills}" Style="{StaticResource Muted}" />
     <VerticalStackLayout BindableLayout.ItemsSource="{Binding Bills}" Spacing="12"><BindableLayout.ItemTemplate><DataTemplate x:DataType="vm:BudgetBillRow">
      <Border><VerticalStackLayout Spacing="8">
       <Entry Text="{Binding Name}" MaxLength="60" Placeholder="Название платежа" />
-      <Label Text="Сколько всего нужно, ₽" /><Entry Text="{Binding Amount}" Keyboard="Numeric" MaxLength="20" />
-      <Label Text="К какой дате?" /><DatePicker Date="{Binding Due}" Format="dd.MM.yyyy" />
+      <Label Text="Сумма одного платежа, ₽" /><Entry Text="{Binding Amount}" Keyboard="Numeric" MaxLength="20" />
+      <Label Text="Когда нужно внести этот платёж?" /><DatePicker Date="{Binding Due}" Format="dd.MM.yyyy" />
       <Label Text="{Binding Status}" Style="{StaticResource Muted}" />
-      <HorizontalStackLayout Spacing="10"><Switch IsToggled="{Binding Monthly}" /><Label Text="Спрашивать каждый месяц" VerticalOptions="Center" /></HorizontalStackLayout>
+      <HorizontalStackLayout Spacing="10"><Switch IsToggled="{Binding Monthly}" /><Label Text="Повторять платёж каждый месяц" VerticalOptions="Center" /></HorizontalStackLayout>
       <Label Text="В этот раз деньги больше не нужны / уже оплачено" /><Switch IsToggled="{Binding Settled}" />
-      <Label Text="Если рассрочка закончилась, также выключите повторение. Расход в журнале эта отметка не создаёт." Style="{StaticResource Muted}" />
+      <Label Text="Для завершённой рассрочки нажмите «Удалить платёж». Расход в журнале эта отметка не создаёт." Style="{StaticResource Muted}" />
+      <Button Text="Удалить платёж" Style="{StaticResource Secondary}" Command="{Binding ViewModel.DeleteBillCommand, Source={x:Reference Page}, x:DataType=views:BudgetEditorPage}" CommandParameter="{Binding .}" />
      </VerticalStackLayout></Border>
     </DataTemplate></BindableLayout.ItemTemplate></VerticalStackLayout>
     <Button Text="У меня есть рассрочка" Command="{Binding AddInstallmentCommand}" Style="{StaticResource Secondary}" />

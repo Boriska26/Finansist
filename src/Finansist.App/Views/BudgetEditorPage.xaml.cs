@@ -2,8 +2,9 @@ using Finansist.Core.ViewModels;
 namespace Finansist.App.Views;
 public partial class BudgetEditorPage : ContentPage
 {
-    private readonly BudgetEditorViewModel viewModel;
-    public BudgetEditorPage(BudgetEditorViewModel viewModel) { this.viewModel = viewModel; InitializeComponent(); BindingContext = viewModel; }
+    public BudgetEditorViewModel ViewModel { get; }
+    private BudgetEditorViewModel viewModel => ViewModel;
+    public BudgetEditorPage(BudgetEditorViewModel viewModel) { ViewModel = viewModel; InitializeComponent(); BindingContext = viewModel; }
     protected override async void OnAppearing()
     {
         base.OnAppearing(); viewModel.PropertyChanged += Changed;

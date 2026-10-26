@@ -72,9 +72,9 @@ public partial class OperationEditorViewModel(IFinanceStore store, IFinanceNavig
             ExpenseChoices.Clear();
             ExpenseChoices.Add(new(null, false, "На себя"));
             ExpenseChoices.Add(new(null, true, "Необходимое: продукты, транспорт и прочее"));
-            foreach (var bill in budget.Document.Bills.Where(b => !b.Settled).OrderBy(b => b.Due))
-                ExpenseChoices.Add(new(bill.Id, true, $"{bill.Name} · {bill.Due:dd.MM.yyyy}"));
             var purpose = budget.Document.Purposes.FirstOrDefault(p => p.OperationId == id);
+            foreach (var bill in budget.Document.Bills.Where(b => !b.Settled && !b.Archived || b.Id == purpose?.BillId).OrderBy(b => b.Due))
+                ExpenseChoices.Add(new(bill.Id, true, $"{bill.Name} · {bill.Due:dd.MM.yyyy}{(bill.Archived ? " (удалён)" : "")}"));
             ExpenseChoice = ExpenseChoices.FirstOrDefault(c => c.BillId == purpose?.BillId && c.Necessary == (purpose?.Necessary ?? false)) ?? ExpenseChoices[0];
         }
         IsLoaded = true;

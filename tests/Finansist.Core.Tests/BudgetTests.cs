@@ -346,12 +346,142 @@ public sealed class BudgetTests : IDisposable
         Assert.Equal(0, BudgetCalculator.Totals(state).FreeCashMinor);
     }
 
+    [Fact]
+    public async Task DeleteBillStopsSeriesReleasesUnusedReserveAndKeepsRealExpense()
+    {
+        var income = await Setup(); var series = Id();
+        var bill = Bill(2400000) with { SeriesId = series, Monthly = true };
+        var future = bill with { Id = Id(), Due = Today.AddMonths(1) };
+        var unrelated = Bill(0);
+        await Allocate(income, bill, future, unrelated);
+        var payment = new FinanceOperation(Id(), OperationKind.Expense, card.Id, null, 600000, Today, "Аренда", "Синтетика");
+        var before = await Store().SaveBudgetOperationAsync(payment, new(payment.Id, true, bill.Id));
+        var after = await Store().DeleteBillAsync(bill.Id, before.Revision);
+        Assert.All(after.Document.Bills.Where(b => b.SeriesId == series), b =>
+        {
+            Assert.True(b.Archived); Assert.True(b.Settled); Assert.False(b.Monthly);
+        });
+        Assert.False(after.Document.Bills.Single(b => b.Id == unrelated.Id).Archived);
+        Assert.Equal(before.Finance.TotalMinor, after.Finance.TotalMinor);
+        Assert.Equal(payment, after.Finance.Operations.Single(o => o.Id == payment.Id));
+        Assert.Equal(bill.Id, Assert.Single(after.Document.Purposes).BillId);
+        Assert.Equal(0, BudgetCalculator.Totals(after).NecessaryMinor);
+        Assert.Equal(2600000, BudgetCalculator.Totals(after).JoyMinor);
+        Assert.Equal(800000, BudgetCalculator.Totals(after).PendingSavingsMinor);
+        var vm = new BudgetEditorViewModel(Store(), new Navigation()); vm.Configure(null, true);
+        await vm.LoadCommand.ExecuteAsync(null);
+        Assert.DoesNotContain(vm.Bills, b => b.SeriesId == series);
+    }
+
+    [Fact]
+    public async Task DeleteBillRejectsStaleEditorAndRollsBackFailedCommit()
+    {
+        var income = await Setup(); var bill = Bill(100000); var state = await Allocate(income, bill);
+        await Assert.ThrowsAsync<FinanceValidationException>(() => Store().DeleteBillAsync(bill.Id, state.Revision - 1));
+        var failing = new LocalStore(new FailureFactory(DatabasePath, "COMMIT"));
+        await Assert.ThrowsAsync<StorageException>(() => failing.DeleteBillAsync(bill.Id, state.Revision));
+        var after = await Store().ReadBudgetAsync();
+        Assert.Equal(state.Revision, after.Revision);
+        Assert.False(Assert.Single(after.Document.Bills).Archived);
+        Assert.Equal(state.Finance.TotalMinor, after.Finance.TotalMinor);
+    }
+
+    [Fact]
+    public async Task DeleteFromEditorRequiresConfirmationAndPersistsWithoutSavingOtherFields()
+    {
+        await Setup(); var first = Bill(100); var other = Bill(200);
+        await Store().SaveBillsAsync([first, other], 0);
+        var navigation = new Navigation { Confirmation = false };
+        var vm = new BudgetEditorViewModel(Store(), navigation); vm.Configure(null, true);
+        await vm.LoadCommand.ExecuteAsync(null);
+        vm.Bills.Single(b => b.Id == other.Id).Name = "Несохранённое название";
+        var row = vm.Bills.Single(b => b.Id == first.Id);
+        await vm.DeleteBillCommand.ExecuteAsync(row);
+        Assert.Equal(2, vm.Bills.Count);
+        Assert.False((await Store().ReadBudgetAsync()).Document.Bills.Single(b => b.Id == first.Id).Archived);
+        navigation.Confirmation = true;
+        await vm.DeleteBillCommand.ExecuteAsync(row);
+        Assert.False(vm.HasError); Assert.Single(vm.Bills);
+        Assert.Equal("Несохранённое название", vm.Bills[0].Name);
+        var state = await Store().ReadBudgetAsync();
+        Assert.True(state.Document.Bills.Single(b => b.Id == first.Id).Archived);
+        Assert.Equal(other.Name, state.Document.Bills.Single(b => b.Id == other.Id).Name);
+        await vm.SaveCommand.ExecuteAsync(null);
+        Assert.Equal("Несохранённое название", (await Store().ReadBudgetAsync()).Document.Bills.Single(b => b.Id == other.Id).Name);
+    }
+
+    [Fact]
+    public async Task DeletedPaymentKeepsPurposeWhenEditingOldExpenseAndRejectsNewLinks()
+    {
+        var income = await Setup(); var bill = Bill(2400000); await Allocate(income, bill);
+        var expense = new FinanceOperation(Id(), OperationKind.Expense, card.Id, null, 600000, Today, "Аренда", "Синтетика");
+        var state = await Store().SaveBudgetOperationAsync(expense, new(expense.Id, true, bill.Id));
+        await Store().DeleteBillAsync(bill.Id, state.Revision);
+        var vm = new OperationEditorViewModel(Store(), new FinanceNavigation(), Store()); vm.Configure(expense);
+        await vm.LoadCommand.ExecuteAsync(null);
+        Assert.Equal(bill.Id, vm.ExpenseChoice!.BillId);
+        vm.Note = "Исправленная синтетическая заметка";
+        await vm.SaveCommand.ExecuteAsync(null); Assert.False(vm.HasError);
+        state = await Store().ReadBudgetAsync();
+        Assert.Equal(bill.Id, Assert.Single(state.Document.Purposes).BillId);
+        var another = expense with { Id = Id() };
+        await Assert.ThrowsAsync<FinanceValidationException>(() => Store().SaveBudgetOperationAsync(another, new(another.Id, true, bill.Id)));
+        Assert.Equal(2, (await Store().ReadBudgetAsync()).Finance.Operations.Count);
+    }
+
+    [Fact]
+    public async Task DeletedLastBillDoesNotReappearOrGenerateNextMonth()
+    {
+        var income = await Setup(); var bill = Bill(500000) with { Monthly = true }; bill = bill with { SeriesId = bill.Id };
+        var state = await Store().SaveBillsAsync([bill], 0);
+        await Store().DeleteBillAsync(bill.Id, state.Revision);
+        var vm = new BudgetEditorViewModel(Store(), new Navigation()); vm.Configure(income.Id);
+        await vm.LoadCommand.ExecuteAsync(null); vm.Until = DateTime.Today.AddMonths(2);
+        Assert.Empty(vm.Bills); Assert.True(vm.NoBills);
+        vm.CushionAccount = vm.Accounts.Single(a => a.Id == cushion.Id);
+        await vm.CalculateCommand.ExecuteAsync(null); Assert.True(vm.HasProposal);
+        await vm.SaveCommand.ExecuteAsync(null); Assert.False(vm.HasError);
+        Assert.Empty(Assert.Single((await Store().ReadBudgetAsync()).Document.Allocations).Funding);
+    }
+
+    [Fact]
+    public async Task UnsavedBlankRowCanBeDeletedEvenWithInvalidAmount()
+    {
+        await Setup(); var vm = new BudgetEditorViewModel(Store(), new Navigation()); vm.Configure(null, true);
+        await vm.LoadCommand.ExecuteAsync(null);
+        var row = vm.Bills[0]; row.Amount = "ошибка";
+        var revision = (await Store().ReadBudgetAsync()).Revision;
+        await vm.DeleteBillCommand.ExecuteAsync(row);
+        Assert.False(vm.HasError); Assert.DoesNotContain(row, vm.Bills);
+        Assert.Equal(revision, (await Store().ReadBudgetAsync()).Revision);
+    }
+
+    [Fact]
+    public void OldBillJsonDefaultsToActivePayment()
+    {
+        var json = System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(Bill(100)))!.AsObject();
+        json.Remove("Archived");
+        var restored = System.Text.Json.JsonSerializer.Deserialize<BudgetBill>(json.ToJsonString())!;
+        Assert.False(restored.Archived);
+    }
+
+    private sealed class FinanceNavigation : IFinanceNavigation
+    {
+        public Task EditAccountAsync(Account? account) => Task.CompletedTask;
+        public Task EditSalaryAsync() => Task.CompletedTask;
+        public Task DistributeIncomeAsync(string id) => Task.CompletedTask;
+        public Task EditOperationAsync(FinanceOperation? operation) => Task.CompletedTask;
+        public Task BackAsync() => Task.CompletedTask;
+        public Task<bool> ConfirmAsync(string title, string message) => Task.FromResult(true);
+    }
+
     private sealed class Navigation : IBudgetNavigation
     {
+        public bool Confirmation { get; set; } = true;
         public Task OpenAllocationAsync(string? incomeId, bool paymentsOnly = false) => Task.CompletedTask;
         public Task RecordTransferAsync(string sourceId, string destinationId, long amount) => Task.CompletedTask;
         public Task AddAccountAsync() => Task.CompletedTask;
         public Task BackAsync() => Task.CompletedTask;
-        public Task<bool> ConfirmAsync(string title, string message) => Task.FromResult(true);
+        public Task<bool> ConfirmAsync(string title, string message) => Task.FromResult(Confirmation);
     }
 }
