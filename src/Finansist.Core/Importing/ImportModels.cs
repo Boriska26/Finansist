@@ -18,6 +18,8 @@ public interface IBankImportStore
 {
     Task<ImportSnapshot> ReadImportsAsync();
     Task<ImportSettings> ReadImportSettingsAsync();
+    Task<IReadOnlySet<string>> ReadSeenImportIdsAsync();
+    Task MarkImportsSeenAsync(IReadOnlyList<string> ids);
     Task ConfigureImportAsync(NotificationSource source, bool enabled);
     Task<bool> ReceivePushAsync(BankPush push);
     Task<ImportRow> ReadImportAsync(string id);

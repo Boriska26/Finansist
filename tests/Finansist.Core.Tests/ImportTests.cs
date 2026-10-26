@@ -235,10 +235,123 @@ public sealed class ImportTests : IDisposable
         await Store().DismissImportAsync(item.Id); await vm.RefreshCommand.ExecuteAsync(null);
         Assert.Equal("Банковские уведомления", vm.ImportLabel);
     }
+    [Fact]
+    public async Task NewImportsOpenOnceAndLaterLeavesPendingAcrossReopen()
+    {
+        await Setup(); var item = await Capture(); var nav = new ImportNavigation();
+        var review = new ImportReviewViewModel(Store(), nav);
+        await review.CheckNewCommand.ExecuteAsync(null);
+        Assert.Equal(1, nav.Opens); Assert.True(review.HasPending); Assert.Contains("1", review.ButtonText);
+        // Navigation alone never acknowledges data: only the displayed inbox does.
+        Assert.Empty(await Store().ReadSeenImportIdsAsync());
+        var inbox = new ImportInboxViewModel(Store(), new Access(), nav);
+        await inbox.RefreshCommand.ExecuteAsync(null);
+        await inbox.LaterCommand.ExecuteAsync(null);
+        Assert.Equal(1, nav.Closes); Assert.Contains(item.Id, await Store().ReadSeenImportIdsAsync());
+        await new ImportReviewViewModel(Store(), nav).CheckNewCommand.ExecuteAsync(null);
+        Assert.Equal(1, nav.Opens);
+        Assert.Single((await Store().ReadImportsAsync()).Pending);
+        Assert.Empty((await Store().ReadFinanceAsync()).Operations);
+        await Capture();
+        await review.CheckNewCommand.ExecuteAsync(null); Assert.Equal(2, nav.Opens); Assert.Equal(2, review.PendingCount);
+    }
+
+    [Fact]
+    public async Task FooterRefreshDoesNotAutoNavigateAndProcessedQueueHidesButton()
+    {
+        await Setup(); var item = await Capture(); var nav = new ImportNavigation();
+        var review = new ImportReviewViewModel(Store(), nav);
+        await review.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal(0, nav.Opens); Assert.True(review.HasPending);
+        await review.OpenInboxCommand.ExecuteAsync(null); Assert.Equal(1, nav.Opens);
+        await Store().DismissImportAsync(item.Id);
+        await review.RefreshCommand.ExecuteAsync(null);
+        Assert.False(review.HasPending); Assert.Equal(0, review.PendingCount);
+        await review.CheckNewCommand.ExecuteAsync(null); Assert.Equal(1, nav.Opens);
+    }
+
+    [Fact]
+    public async Task BusyEditorKeepsImportsUnseenForNextForegroundCheck()
+    {
+        await Setup(); await Capture(); var nav = new ImportNavigation { CanOpen = false };
+        var review = new ImportReviewViewModel(Store(), nav);
+        await review.CheckNewCommand.ExecuteAsync(null);
+        Assert.Equal(0, nav.Opens); Assert.Empty(await Store().ReadSeenImportIdsAsync());
+        nav.CanOpen = true;
+        await review.CheckNewCommand.ExecuteAsync(null); Assert.Equal(1, nav.Opens);
+    }
+
+    [Fact]
+    public async Task MarkingLoadedRowsDoesNotHidePushReceivedAfterSnapshot()
+    {
+        await Setup(); var firstItem = await Capture(); var secondItem = await Capture();
+        await Store().MarkImportsSeenAsync([firstItem.Id, Guid.NewGuid().ToString()]);
+        var seen = await Store().ReadSeenImportIdsAsync();
+        Assert.Single(seen); Assert.Contains(firstItem.Id, seen); Assert.DoesNotContain(secondItem.Id, seen);
+        await Store().DismissImportAsync(firstItem.Id);
+        await Store().MarkImportsSeenAsync([]);
+        Assert.Empty(await Store().ReadSeenImportIdsAsync());
+        Assert.Single((await Store().ReadImportsAsync()).Pending);
+    }
+
+    [Fact]
+    public async Task AutoCheckArrivingDuringFooterRefreshIsNotLost()
+    {
+        await Setup(); await Capture(); var nav = new ImportNavigation(); var store = new PausingStore(Store());
+        var review = new ImportReviewViewModel(store, nav);
+        var refresh = review.RefreshCommand.ExecuteAsync(null);
+        await store.Started.Task;
+        await review.CheckNewCommand.ExecuteAsync(null);
+        store.Release.SetResult(); await refresh;
+        Assert.Equal(1, nav.Opens); Assert.Equal(1, review.PendingCount);
+    }
+
+    [Fact]
+    public async Task ForegroundStorageErrorIsShownWithoutMarkingOrOpeningQueue()
+    {
+        await Setup(); await Capture();
+        var nav = new ImportNavigation();
+        var review = new ImportReviewViewModel(new LocalStore(new FailureFactory(DatabasePath, "BEGIN IMMEDIATE")), nav);
+        await review.CheckNewCommand.ExecuteAsync(null);
+        Assert.True(review.HasError); Assert.False(review.IsBusy); Assert.Equal(0, nav.Opens);
+        Assert.Empty(await Store().ReadSeenImportIdsAsync());
+    }
+
+    private sealed class Access : INotificationAccess
+    {
+        public bool IsGranted => true;
+        public bool HasCaptureError => false;
+        public Task<IReadOnlyList<NotificationSource>> GetBankAppsAsync() => Task.FromResult<IReadOnlyList<NotificationSource>>([]);
+        public Task OpenSettingsAsync() => Task.CompletedTask;
+    }
+    private sealed class PausingStore(IBankImportStore inner) : IBankImportStore
+    {
+        private bool pause = true;
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public async Task<ImportSnapshot> ReadImportsAsync()
+        {
+            if (pause) { pause = false; Started.SetResult(); await Release.Task; }
+            return await inner.ReadImportsAsync();
+        }
+        public Task<IReadOnlySet<string>> ReadSeenImportIdsAsync() => inner.ReadSeenImportIdsAsync();
+        public Task MarkImportsSeenAsync(IReadOnlyList<string> ids) => inner.MarkImportsSeenAsync(ids);
+        public Task<ImportSettings> ReadImportSettingsAsync() => inner.ReadImportSettingsAsync();
+        public Task ConfigureImportAsync(NotificationSource source, bool enabled) => inner.ConfigureImportAsync(source, enabled);
+        public Task<bool> ReceivePushAsync(BankPush push) => inner.ReceivePushAsync(push);
+        public Task<ImportRow> ReadImportAsync(string id) => inner.ReadImportAsync(id);
+        public Task DismissImportAsync(string id) => inner.DismissImportAsync(id);
+        public Task<string> ConfirmImportAsync(string id, FinanceOperation operation, ExpensePurpose? purpose, string? existingOperationId = null) => inner.ConfirmImportAsync(id, operation, purpose, existingOperationId);
+    }
+
     private sealed class TestTheme : IThemeService { public void Apply(ThemePreference theme) { } }
     private sealed class ImportNavigation : IImportNavigation
     {
         public int Opens { get; private set; }
+        public bool CanOpen { get; set; } = true;
+        public int Closes { get; private set; }
+        public Task<bool> TryOpenInboxAsync() { if (!CanOpen) return Task.FromResult(false); Opens++; return Task.FromResult(true); }
+        public Task CloseInboxAsync() { Closes++; return Task.CompletedTask; }
         public Task OpenInboxAsync() { Opens++; return Task.CompletedTask; }
         public Task ReviewAsync(string id) => Task.CompletedTask;
         public Task<NotificationSource?> ChooseSourceAsync(IReadOnlyList<NotificationSource> sources) => Task.FromResult<NotificationSource?>(null);

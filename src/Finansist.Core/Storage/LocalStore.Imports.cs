@@ -16,6 +16,21 @@ public sealed partial class LocalStore
         ?? throw new StorageException("Не удалось прочитать найденную операцию."), row[1]!, row[2]);
     private static ImportRow GetImport(ISqliteConnection db, string id) => db.Query("SELECT payload, status, operation_id FROM notification_imports WHERE id = ?", id)
         .Select(ImportFromRow).SingleOrDefault() ?? throw new FinanceValidationException("Найденная операция больше не доступна. Обновите очередь.");
+    private static HashSet<string> ReadSeenImports(ISqliteConnection db)
+    {
+        var json = db.Scalar("SELECT value FROM app_settings WHERE key = ?", "seen_imports");
+        return json is null ? [] : JsonSerializer.Deserialize<HashSet<string>>(json) ?? throw new StorageException("Не удалось прочитать состояние очереди.");
+    }
+    public Task<IReadOnlySet<string>> ReadSeenImportIdsAsync() => RunAsync<IReadOnlySet<string>>(ReadSeenImports);
+    public Task MarkImportsSeenAsync(IReadOnlyList<string> ids) => RunAsync(db =>
+    {
+        var seen = ReadSeenImports(db);
+        seen.UnionWith(ids);
+        var pending = db.Query("SELECT id FROM notification_imports WHERE status = 'pending'").Select(row => row[0]!).ToHashSet();
+        seen.IntersectWith(pending);
+        db.Execute("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)", "seen_imports", JsonSerializer.Serialize(seen));
+        return true;
+    });
     public Task<ImportSettings> ReadImportSettingsAsync() => RunAsync(ReadImportSettings);
     public Task<ImportSnapshot> ReadImportsAsync() => RunAsync(db => new ImportSnapshot(ReadImportSettings(db),
         db.Query("SELECT payload, status, operation_id FROM notification_imports WHERE status = 'pending' ORDER BY received_at, id").Select(ImportFromRow).ToArray(),

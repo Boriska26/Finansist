@@ -5,8 +5,10 @@ namespace Finansist.App.Views;
 public partial class FinancePage : ContentPage
 {
     public FinanceViewModel ViewModel { get; }
-    public FinancePage(FinanceViewModel viewModel)
+    public ImportReviewViewModel Imports { get; }
+    public FinancePage(FinanceViewModel viewModel, ImportReviewViewModel imports)
     {
+        Imports = imports;
         ViewModel = viewModel; // x:Reference bindings need this during XAML initialization.
         InitializeComponent();
         BindingContext = viewModel;
@@ -47,5 +49,6 @@ public partial class FinancePage : ContentPage
         base.OnAppearing();
         if (!ViewModel.AppState.IsReady) await ViewModel.AppState.InitializeCommand.ExecuteAsync(null);
         await ViewModel.RefreshCommand.ExecuteAsync(null);
+        await Imports.RefreshCommand.ExecuteAsync(null);
     }
 }

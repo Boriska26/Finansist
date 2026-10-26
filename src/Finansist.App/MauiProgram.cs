@@ -14,7 +14,11 @@ public static class MauiProgram
     public static MauiApp CreateMauiApp()
     {
         var builder = MauiApp.CreateBuilder().UseMauiApp<App>();
-        builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<FinanceChart, Platforms.Android.FinanceChartHandler>());
+        builder.ConfigureMauiHandlers(handlers =>
+        {
+            handlers.AddHandler<FinanceChart, Platforms.Android.FinanceChartHandler>();
+            handlers.AddHandler<FinanceSwipeHost, Platforms.Android.FinanceSwipeHostHandler>();
+        });
         builder.Services.AddSingleton<ISqliteConnectionFactory>(_ =>
             new AndroidSqliteConnectionFactory(Path.Combine(FileSystem.AppDataDirectory, "finansist.db")));
         builder.Services.AddSingleton<LocalStore>();
@@ -30,6 +34,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<INotificationAccess, BankNotificationAccess>();
         builder.Services.AddSingleton<IImportNavigation, ImportNavigation>();
         builder.Services.AddSingleton<ImportInboxViewModel>();
+        builder.Services.AddSingleton<ImportReviewViewModel>();
         builder.Services.AddSingleton<FinanceViewModel>();
         builder.Services.AddTransient<AccountEditorViewModel>();
         builder.Services.AddTransient<OperationEditorViewModel>();

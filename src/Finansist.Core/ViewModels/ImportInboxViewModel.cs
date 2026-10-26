@@ -9,6 +9,8 @@ namespace Finansist.Core.ViewModels;
 public interface IImportNavigation
 {
     Task OpenInboxAsync();
+    Task<bool> TryOpenInboxAsync();
+    Task CloseInboxAsync();
     Task ReviewAsync(string candidateId);
     Task<NotificationSource?> ChooseSourceAsync(IReadOnlyList<NotificationSource> sources);
     Task<bool> ConfirmAsync(string title, string message);
@@ -45,7 +47,9 @@ public partial class ImportInboxViewModel(IBankImportStore store, INotificationA
         }
         IsEmpty = Rows.Count == 0;
         QueueStatus = $"Ожидают проверки: {Rows.Count}. Обработано: {snapshot.ProcessedCount}.";
+        await store.MarkImportsSeenAsync(snapshot.Pending.Select(row => row.Candidate.Id).ToArray());
     }
+    [RelayCommand] private Task LaterAsync() => RunAsync(navigation.CloseInboxAsync);
     [RelayCommand] private Task ChooseSourceAsync() => RunAsync(async () =>
     {
         var apps = await access.GetBankAppsAsync();

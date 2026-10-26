@@ -4,7 +4,7 @@
  xmlns:finance="clr-namespace:Finansist.Core.Finance;assembly=Finansist.Core"
  xmlns:views="clr-namespace:Finansist.App.Views" x:Class="Finansist.App.Views.FinancePage"
  x:Name="Page" x:DataType="vm:FinanceViewModel" Title="Финансы" SafeAreaEdges="Container">
- <Grid RowDefinitions="Auto,Auto,*">
+ <views:FinanceSwipeHost RowDefinitions="Auto,Auto,*" IsOverview="{Binding IsOverviewVisible}" ShowOverviewCommand="{Binding ShowOverviewCommand}" ShowLedgerCommand="{Binding ShowLedgerCommand}">
   <Grid Padding="16,8" ColumnDefinitions="*,*" ColumnSpacing="8">
    <Button Text="Счета и операции" Command="{Binding ShowLedgerCommand}" Style="{StaticResource Secondary}" SemanticProperties.Hint="Основной экран финансов"><Button.Triggers><DataTrigger TargetType="Button" Binding="{Binding IsLedgerVisible}" Value="True"><Setter Property="BorderWidth" Value="2" /><Setter Property="BorderColor" Value="{AppThemeBinding Light=#315DA8, Dark=#A8C7FA}" /></DataTrigger></Button.Triggers></Button>
    <Button Grid.Column="1" Text="Обзор" Command="{Binding ShowOverviewCommand}" Style="{StaticResource Secondary}" SemanticProperties.Hint="Графики доходов, расходов и остатка"><Button.Triggers><DataTrigger TargetType="Button" Binding="{Binding IsOverviewVisible}" Value="True"><Setter Property="BorderWidth" Value="2" /><Setter Property="BorderColor" Value="{AppThemeBinding Light=#315DA8, Dark=#A8C7FA}" /></DataTrigger></Button.Triggers></Button>
@@ -83,6 +83,14 @@
    <CollectionView.Footer><VerticalStackLayout Padding="20,8,20,16" Spacing="16">
     <Button Text="Показать ещё 10" Command="{Binding LoadMoreCommand}" IsVisible="{Binding CanLoadMoreOperations}" Style="{StaticResource Secondary}" />
     <Label Text="После зарплаты распределите деньги на необходимое, подушку и себя на вкладке «Бюджет»." Style="{StaticResource Muted}" />
+    <Button Text="{Binding Imports.ButtonText, Source={x:Reference Page}, x:DataType=views:FinancePage}"
+     IsVisible="{Binding Imports.HasPending, Source={x:Reference Page}, x:DataType=views:FinancePage}"
+     IsEnabled="{Binding Imports.IsIdle, Source={x:Reference Page}, x:DataType=views:FinancePage}"
+     Command="{Binding Imports.OpenInboxCommand, Source={x:Reference Page}, x:DataType=views:FinancePage}" />
+    <VerticalStackLayout IsVisible="{Binding Imports.HasError, Source={x:Reference Page}, x:DataType=views:FinancePage}" Spacing="8">
+     <Label Text="{Binding Imports.ErrorMessage, Source={x:Reference Page}, x:DataType=views:FinancePage}" />
+     <Button Text="Обновить уведомления" Command="{Binding Imports.RefreshCommand, Source={x:Reference Page}, x:DataType=views:FinancePage}" Style="{StaticResource Secondary}" />
+    </VerticalStackLayout>
    </VerticalStackLayout></CollectionView.Footer>
   </CollectionView>
   <Grid Grid.Row="1" Padding="16,10" ColumnDefinitions="*,*" ColumnSpacing="10" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1C1C1E}" IsEnabled="{Binding IsIdle}">
@@ -90,5 +98,7 @@
    <Button Grid.Column="1" Text="+ Операция" Command="{Binding AddOperationCommand}" IsEnabled="{Binding HasAccounts}" />
   </Grid>
   </Grid>
- </Grid>
+  <BoxView Grid.RowSpan="3" WidthRequest="3" HeightRequest="80" CornerRadius="2" HorizontalOptions="Start" VerticalOptions="Center" InputTransparent="True" Opacity="0.6" Color="{AppThemeBinding Light=#315DA8, Dark=#A8C7FA}" IsVisible="{Binding IsLedgerVisible}" />
+  <BoxView Grid.RowSpan="3" WidthRequest="3" HeightRequest="80" CornerRadius="2" HorizontalOptions="End" VerticalOptions="Center" InputTransparent="True" Opacity="0.6" Color="{AppThemeBinding Light=#315DA8, Dark=#A8C7FA}" IsVisible="{Binding IsOverviewVisible}" />
+ </views:FinanceSwipeHost>
 </ContentPage>

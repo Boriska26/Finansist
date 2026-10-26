@@ -9,5 +9,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../../src/Finansist.App/Views/ChartTouchTracker.cs" Link="UI/ChartTouchTracker.cs" />
+    <Compile Include="../../src/Finansist.App/Views/EdgeSwipeTracker.cs" Link="UI/EdgeSwipeTracker.cs" />
   </ItemGroup>
 </Project>

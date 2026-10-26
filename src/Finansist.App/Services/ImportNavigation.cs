@@ -8,7 +8,25 @@ namespace Finansist.App.Services;
 
 public sealed class ImportNavigation(IServiceProvider services) : IImportNavigation
 {
-    public Task OpenInboxAsync() => Shell.Current.Navigation.PushAsync(new ImportInboxPage(services.GetRequiredService<ImportInboxViewModel>()));
+    private bool opening;
+    public async Task OpenInboxAsync() => _ = await TryOpenInboxAsync();
+    public async Task<bool> TryOpenInboxAsync()
+    {
+        var shell = Shell.Current;
+        if (opening || shell is null || shell.Navigation.ModalStack.Count != 0 ||
+            shell.CurrentPage is not (FinancePage or BudgetPage or SettingsPage or ShoppingPage)) return false;
+        opening = true;
+        try
+        {
+            await shell.Navigation.PushAsync(new ImportInboxPage(services.GetRequiredService<ImportInboxViewModel>()));
+            return true;
+        }
+        finally { opening = false; }
+    }
+    public async Task CloseInboxAsync()
+    {
+        if (Shell.Current.CurrentPage is ImportInboxPage) await Shell.Current.Navigation.PopAsync();
+    }
     public async Task ReviewAsync(string candidateId)
     {
         var row = await services.GetRequiredService<IBankImportStore>().ReadImportAsync(candidateId);
