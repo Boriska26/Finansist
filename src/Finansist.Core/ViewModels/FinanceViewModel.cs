@@ -57,7 +57,7 @@ public partial class FinanceViewModel(IFinanceStore store, IFinanceNavigation na
     [ObservableProperty] private bool isAccountsExpanded;
     public bool CanToggleAccounts => Accounts.Count > 1;
     public bool CanReorderAccounts => CanToggleAccounts && IsAccountsExpanded && IsIdle;
-    public string AccountsToggleText => IsAccountsExpanded ? "Свернуть: оставить первый счёт" : $"Показать остальные ({Math.Max(0, Accounts.Count - 1)})";
+    public string AccountsHeader => CanToggleAccounts ? $"Счета {(IsAccountsExpanded ? "▴" : "▾")}" : "Счета";
     partial void OnIsAccountsExpandedChanged(bool value) => UpdateVisibleAccounts();
     private void UpdateVisibleAccounts()
     {
@@ -65,7 +65,7 @@ public partial class FinanceViewModel(IFinanceStore store, IFinanceNavigation na
         foreach (var account in Accounts.Take(IsAccountsExpanded ? Accounts.Count : 1)) VisibleAccounts.Add(account);
         OnPropertyChanged(nameof(CanToggleAccounts));
         OnPropertyChanged(nameof(CanReorderAccounts));
-        OnPropertyChanged(nameof(AccountsToggleText));
+        OnPropertyChanged(nameof(AccountsHeader));
     }
     [RelayCommand] private Task ToggleAccountsAsync() => RunAsync(async () =>
     {
@@ -90,6 +90,27 @@ public partial class FinanceViewModel(IFinanceStore store, IFinanceNavigation na
         UpdateVisibleAccounts();
     });
     public ObservableCollection<OperationRow> Operations { get; } = [];
+    public ObservableCollection<OperationRow> VisibleOperations { get; } = [];
+    [ObservableProperty] private bool isOperationsExpanded;
+    public string OperationsHeader => $"Операции {(IsOperationsExpanded ? "▴" : "▾")}";
+    public bool CanLoadMoreOperations => IsOperationsExpanded && HasMore;
+    partial void OnHasMoreChanged(bool value) => OnPropertyChanged(nameof(CanLoadMoreOperations));
+    partial void OnIsOperationsExpandedChanged(bool value)
+    {
+        UpdateVisibleOperations();
+        OnPropertyChanged(nameof(OperationsHeader));
+        OnPropertyChanged(nameof(CanLoadMoreOperations));
+    }
+    private void UpdateVisibleOperations()
+    {
+        VisibleOperations.Clear();
+        foreach (var operation in Operations.Take(IsOperationsExpanded ? Operations.Count : 1))
+            VisibleOperations.Add(operation);
+    }
+    [RelayCommand] private void ToggleOperations()
+    {
+        if (IsIdle) IsOperationsExpanded = !IsOperationsExpanded;
+    }
     private FinanceSnapshot snapshot = FinanceSnapshot.Empty;
     [ObservableProperty] private string totalText = "— ₽";
     [ObservableProperty] private bool hasAccounts;
@@ -179,6 +200,7 @@ public partial class FinanceViewModel(IFinanceStore store, IFinanceNavigation na
             if (operation.DestinationId is not null) name += " → " + names[operation.DestinationId];
             Operations.Add(new OperationRow(operation, name));
         }
+        UpdateVisibleOperations();
         HasMore = Operations.Count < history.Count;
         var period = appliedPeriod == 1 ? $"{appliedFrom:dd.MM.yyyy} — {appliedTo:dd.MM.yyyy}" : HistoryPeriods[appliedPeriod];
         HistorySummary = $"{period} · {HistoryKinds[appliedKind]}\nПоказано {Operations.Count} из {matchedCount}";

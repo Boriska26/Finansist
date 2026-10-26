@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
     <Style TargetType="ContentPage" ApplyToDerivedTypes="True">
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#F4F6F3, Dark=#101A17}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#F4F5F7, Dark=#121212}" />
     </Style>
     <Style TargetType="Shell" ApplyToDerivedTypes="True">
-        <Setter Property="Shell.TabBarBackgroundColor" Value="{AppThemeBinding Light=#FFFFFF, Dark=#182620}" />
-        <Setter Property="Shell.TabBarTitleColor" Value="{AppThemeBinding Light=#12644E, Dark=#94E3C3}" />
-        <Setter Property="Shell.TabBarForegroundColor" Value="{AppThemeBinding Light=#12644E, Dark=#94E3C3}" />
-        <Setter Property="Shell.TabBarUnselectedColor" Value="{AppThemeBinding Light=#53645D, Dark=#A6B8AE}" />
+        <Setter Property="Shell.TabBarBackgroundColor" Value="{AppThemeBinding Light=#FFFFFF, Dark=#1C1C1E}" />
+        <Setter Property="Shell.TabBarTitleColor" Value="{AppThemeBinding Light=#315DA8, Dark=#A8C7FA}" />
+        <Setter Property="Shell.TabBarForegroundColor" Value="{AppThemeBinding Light=#315DA8, Dark=#A8C7FA}" />
+        <Setter Property="Shell.TabBarUnselectedColor" Value="{AppThemeBinding Light=#62666F, Dark=#ADB1BA}" />
     </Style>
     <Style x:Key="BaseLabel" TargetType="Label">
-        <Setter Property="TextColor" Value="{AppThemeBinding Light=#1A3027, Dark=#EFF8F2}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light=#202124, Dark=#E3E3E8}" />
         <Setter Property="FontSize" Value="16" />
         <Setter Property="LineBreakMode" Value="WordWrap" />
     </Style>
@@ -24,18 +24,18 @@
         <Setter Property="SemanticProperties.HeadingLevel" Value="Level2" />
     </Style>
     <Style x:Key="Muted" TargetType="Label" BasedOn="{StaticResource BaseLabel}">
-        <Setter Property="TextColor" Value="{AppThemeBinding Light=#52675B, Dark=#B0C3B7}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light=#62666F, Dark=#B8BBC4}" />
         <Setter Property="FontSize" Value="14" /><Setter Property="LineHeight" Value="1.2" />
     </Style>
     <Style TargetType="Border">
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FFFFFF, Dark=#1C2B24}" />
-        <Setter Property="Stroke" Value="{AppThemeBinding Light=#DFE8DF, Dark=#34483D}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FFFFFF, Dark=#202124}" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light=#DDE0E6, Dark=#3C4048}" />
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="StrokeShape" Value="RoundRectangle 24" /><Setter Property="Padding" Value="22" />
     </Style>
     <Style x:Key="BaseButton" TargetType="Button">
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#14634F, Dark=#A0E6C9}" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light=#FFFFFF, Dark=#123A2B}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#315DA8, Dark=#A8C7FA}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light=#FFFFFF, Dark=#102C54}" />
         <Setter Property="CornerRadius" Value="16" /><Setter Property="FontSize" Value="16" />
         <Setter Property="FontAttributes" Value="Bold" /><Setter Property="MinimumHeightRequest" Value="52" />
         <Setter Property="Padding" Value="16,12" />
@@ -46,33 +46,33 @@
     </Style>
     <Style TargetType="Button" BasedOn="{StaticResource BaseButton}" />
     <Style x:Key="Secondary" TargetType="Button" BasedOn="{StaticResource BaseButton}">
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#E6EFE8, Dark=#2B4135}" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light=#164E3B, Dark=#D5F6E3}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#E8EDF6, Dark=#30343C}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light=#264C87, Dark=#D8E2F4}" />
     </Style>
-    <Style TargetType="ActivityIndicator"><Setter Property="Color" Value="{AppThemeBinding Light=#14634F, Dark=#A0E6C9}" /></Style>
+    <Style TargetType="ActivityIndicator"><Setter Property="Color" Value="{AppThemeBinding Light=#315DA8, Dark=#A8C7FA}" /></Style>
     <Style TargetType="Entry">
-        <Setter Property="TextColor" Value="{AppThemeBinding Light=#1A3027, Dark=#EFF8F2}" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FFFFFF, Dark=#1C2B24}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light=#202124, Dark=#E3E3E8}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FFFFFF, Dark=#202124}" />
         <Setter Property="FontSize" Value="18" />
         <Setter Property="MinimumHeightRequest" Value="52" />
-        <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light=#52675B, Dark=#B0C3B7}" />
+        <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light=#62666F, Dark=#B8BBC4}" />
     </Style>
     <Style TargetType="Editor">
-        <Setter Property="TextColor" Value="{AppThemeBinding Light=#1A3027, Dark=#EFF8F2}" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FFFFFF, Dark=#1C2B24}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light=#202124, Dark=#E3E3E8}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FFFFFF, Dark=#202124}" />
         <Setter Property="FontSize" Value="18" />
         <Setter Property="MinimumHeightRequest" Value="52" />
-        <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light=#52675B, Dark=#B0C3B7}" />
+        <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light=#62666F, Dark=#B8BBC4}" />
     </Style>
     <Style TargetType="Picker">
-        <Setter Property="TextColor" Value="{AppThemeBinding Light=#1A3027, Dark=#EFF8F2}" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FFFFFF, Dark=#1C2B24}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light=#202124, Dark=#E3E3E8}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FFFFFF, Dark=#202124}" />
         <Setter Property="FontSize" Value="18" />
         <Setter Property="MinimumHeightRequest" Value="52" />
     </Style>
     <Style TargetType="DatePicker">
-        <Setter Property="TextColor" Value="{AppThemeBinding Light=#1A3027, Dark=#EFF8F2}" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FFFFFF, Dark=#1C2B24}" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light=#202124, Dark=#E3E3E8}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#FFFFFF, Dark=#202124}" />
         <Setter Property="FontSize" Value="18" />
         <Setter Property="MinimumHeightRequest" Value="52" />
     </Style>

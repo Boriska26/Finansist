@@ -45,7 +45,7 @@
     <Button Text="Удалить операцию" Style="{StaticResource Secondary}" IsVisible="{Binding IsExisting}" Command="{Binding DeleteCommand}" Margin="0,12,0,0" />
    </VerticalStackLayout>
   </VerticalStackLayout></ScrollView>
-  <Grid Grid.Row="1" Padding="16,10" ColumnDefinitions="*,*" ColumnSpacing="10" IsEnabled="{Binding IsIdle}" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#182620}">
+  <Grid Grid.Row="1" Padding="16,10" ColumnDefinitions="*,*" ColumnSpacing="10" IsEnabled="{Binding IsIdle}" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1C1C1E}">
    <Button Text="Отмена" Style="{StaticResource Secondary}" Command="{Binding CancelCommand}" />
    <Button Grid.Column="1" Text="{Binding SaveLabel}" Command="{Binding SaveCommand}" />
   </Grid>

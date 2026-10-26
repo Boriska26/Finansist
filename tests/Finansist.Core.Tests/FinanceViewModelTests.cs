@@ -170,6 +170,41 @@ public sealed class FinanceViewModelTests
     }
 
     [Fact]
+    public async Task CollapsedOperationsShowNewestAndExpansionRetainsLoadedHistory()
+    {
+        var store = HistoryStore(); var vm = new FinanceViewModel(store, new Navigation(), new(new ThemeStore(), new ThemeService()));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.False(vm.IsOperationsExpanded); Assert.Single(vm.VisibleOperations);
+        Assert.Equal(vm.Operations[0], vm.VisibleOperations[0]);
+        vm.ToggleOperationsCommand.Execute(null);
+        Assert.True(vm.IsOperationsExpanded); Assert.Equal(vm.Operations.ToArray(), vm.VisibleOperations.ToArray());
+        vm.HistoryPeriodIndex = 2; await vm.ApplyHistoryFiltersCommand.ExecuteAsync(null);
+        Assert.True(vm.CanLoadMoreOperations);
+        vm.LoadMoreCommand.Execute(null); Assert.Equal(20, vm.VisibleOperations.Count);
+        vm.ToggleOperationsCommand.Execute(null);
+        Assert.Single(vm.VisibleOperations); Assert.False(vm.CanLoadMoreOperations); Assert.Equal(20, vm.Operations.Count);
+        vm.ToggleOperationsCommand.Execute(null); Assert.Equal(20, vm.VisibleOperations.Count);
+    }
+
+    [Fact]
+    public async Task CollapsedOperationsFollowAppliedFiltersAndRefreshWithoutStaleRows()
+    {
+        var store = HistoryStore(); var vm = new FinanceViewModel(store, new Navigation(), new(new ThemeStore(), new ThemeService()));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        vm.HistoryKindIndex = 1; await vm.ApplyHistoryFiltersCommand.ExecuteAsync(null);
+        Assert.Single(vm.VisibleOperations); Assert.Equal(OperationKind.Income, vm.VisibleOperations[0].Operation.Kind);
+        Assert.Equal(vm.Operations[0], vm.VisibleOperations[0]);
+        vm.HistoryPeriodIndex = 1; vm.HistoryFrom = new DateTime(2024, 1, 1); vm.HistoryTo = new DateTime(2024, 1, 2);
+        await vm.ApplyHistoryFiltersCommand.ExecuteAsync(null);
+        Assert.Empty(vm.VisibleOperations); Assert.True(vm.NoMatchingOperations);
+        await vm.ResetHistoryFiltersCommand.ExecuteAsync(null); Assert.Single(vm.VisibleOperations);
+        vm.ToggleOperationsCommand.Execute(null);
+        store.Snapshot = FinanceSnapshot.Empty;
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.True(vm.IsOperationsExpanded); Assert.Empty(vm.VisibleOperations); Assert.False(vm.CanLoadMoreOperations);
+    }
+
+    [Fact]
     public async Task HistoryDefaultsToTenNewestWithoutChangingLedger()
     {
         var store = HistoryStore(); var vm = new FinanceViewModel(store, new Navigation(), new(new ThemeStore(), new ThemeService()));

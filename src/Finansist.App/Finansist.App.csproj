@@ -7,8 +7,8 @@
     <SingleProject>true</SingleProject>
     <ApplicationTitle>Финансист</ApplicationTitle>
     <ApplicationId>ru.finansist.personal</ApplicationId>
-    <ApplicationDisplayVersion>0.4.1</ApplicationDisplayVersion>
-    <ApplicationVersion>11</ApplicationVersion>
+    <ApplicationDisplayVersion>0.4.2</ApplicationDisplayVersion>
+    <ApplicationVersion>12</ApplicationVersion>
     <SupportedOSPlatformVersion>23.0</SupportedOSPlatformVersion>
     <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
     <AndroidPackageFormats>apk</AndroidPackageFormats>
@@ -17,8 +17,8 @@
     <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
   </PropertyGroup>
   <ItemGroup>
-    <MauiIcon Include="Resources/AppIcon/appicon.svg" ForegroundFile="Resources/AppIcon/appiconfg.svg" Color="#123C34" />
-    <MauiSplashScreen Include="Resources/Splash/splash.svg" Color="#123C34" BaseSize="128,128" />
+    <MauiIcon Include="Resources/AppIcon/appicon.svg" ForegroundFile="Resources/AppIcon/appiconfg.svg" Color="#26354A" />
+    <MauiSplashScreen Include="Resources/Splash/splash.svg" Color="#26354A" BaseSize="128,128" />
     <MauiImage Include="Resources/Images/*" />
     <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.110" />
     <ProjectReference Include="../Finansist.Core/Finansist.Core.csproj" />

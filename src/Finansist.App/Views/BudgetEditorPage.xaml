@@ -46,7 +46,7 @@
     </VerticalStackLayout>
    </VerticalStackLayout>
   </VerticalStackLayout></ScrollView>
-  <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="10" Padding="16,10" IsEnabled="{Binding IsIdle}" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#182620}">
+  <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="10" Padding="16,10" IsEnabled="{Binding IsIdle}" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1C1C1E}">
    <Button Text="Назад" Command="{Binding CancelCommand}" Style="{StaticResource Secondary}" /><Button Grid.Column="1" Text="{Binding SaveLabel}" Command="{Binding SaveCommand}" />
   </Grid>
  </Grid>
