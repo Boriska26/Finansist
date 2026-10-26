@@ -16,13 +16,15 @@ public sealed class FinanceChart : GraphicsView, IDrawable
     public FinanceChart()
     {
         Drawable = this;
-        StartInteraction += (_, args) =>
-        {
-            if (Result is not { Points.Count: > 0 } r || args.Touches.Length == 0 || Width <= 72) return;
-            SelectedIndex = Math.Clamp((int)((args.Touches[0].X - 56) / ((Width - 68) / r.Points.Count)), 0, r.Points.Count - 1);
-        };
+        StartInteraction += (_, args) => SelectPoint(args.Touches);
+        DragInteraction += (_, args) => SelectPoint(args.Touches);
         Loaded += (_, _) => { if (Application.Current is { } app) app.RequestedThemeChanged += ThemeChanged; };
         Unloaded += (_, _) => { if (Application.Current is { } app) app.RequestedThemeChanged -= ThemeChanged; };
+    }
+    private void SelectPoint(PointF[] touches)
+    {
+        if (Result is not { Points.Count: > 0 } r || touches.Length == 0 || Width <= 72) return;
+        SelectedIndex = Math.Clamp((int)((touches[0].X - 56) / ((Width - 68) / r.Points.Count)), 0, r.Points.Count - 1);
     }
     private void ThemeChanged(object? sender, AppThemeChangedEventArgs args) => Invalidate();
     public void Draw(ICanvas canvas, RectF dirtyRect)

@@ -2,8 +2,10 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
  xmlns:vm="clr-namespace:Finansist.Core.ViewModels;assembly=Finansist.Core" xmlns:views="clr-namespace:Finansist.App.Views"
  x:Class="Finansist.App.Views.FinanceOverviewView" x:DataType="vm:FinanceOverviewViewModel">
- <ScrollView><ScrollView.GestureRecognizers><SwipeGestureRecognizer Direction="Left" Command="{Binding CloseCommand}" /></ScrollView.GestureRecognizers><VerticalStackLayout Padding="20,12,20,24" Spacing="16">
-  <Label Text="Обзор финансов" Style="{StaticResource Title}" />
+ <ScrollView><VerticalStackLayout Padding="20,12,20,24" Spacing="16">
+  <Label Text="Обзор финансов" Style="{StaticResource Title}" MinimumHeightRequest="48" SemanticProperties.Hint="Проведите влево по заголовку для возврата к операциям">
+   <Label.GestureRecognizers><SwipeGestureRecognizer Direction="Left" Command="{Binding CloseCommand}" /></Label.GestureRecognizers>
+  </Label>
   <Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" TextColor="{AppThemeBinding Light=#9B321B, Dark=#FFBCA8}" />
   <Picker ItemsSource="{Binding Periods}" SelectedIndex="{Binding PeriodIndex}" Title="Период обзора" />
   <Grid ColumnDefinitions="52,*,52" ColumnSpacing="8">

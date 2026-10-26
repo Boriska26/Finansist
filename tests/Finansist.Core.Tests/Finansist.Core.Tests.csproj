@@ -7,4 +7,7 @@
     <ProjectReference Include="../../src/Finansist.Core/Finansist.Core.csproj" />
     <Using Include="Xunit" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../src/Finansist.App/Views/ChartTouchTracker.cs" Link="UI/ChartTouchTracker.cs" />
+  </ItemGroup>
 </Project>

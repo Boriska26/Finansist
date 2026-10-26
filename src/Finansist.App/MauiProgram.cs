@@ -14,6 +14,7 @@ public static class MauiProgram
     public static MauiApp CreateMauiApp()
     {
         var builder = MauiApp.CreateBuilder().UseMauiApp<App>();
+        builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<FinanceChart, Platforms.Android.FinanceChartHandler>());
         builder.Services.AddSingleton<ISqliteConnectionFactory>(_ =>
             new AndroidSqliteConnectionFactory(Path.Combine(FileSystem.AppDataDirectory, "finansist.db")));
         builder.Services.AddSingleton<LocalStore>();
