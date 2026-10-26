@@ -222,6 +222,29 @@ public sealed class ImportTests : IDisposable
         Assert.Equal("4", check.Scalar("PRAGMA user_version")); Assert.Equal("0", check.Scalar("SELECT COUNT(*) FROM sqlite_master WHERE name='notification_imports'"));
         Assert.Equal("2", check.Scalar("SELECT COUNT(*) FROM accounts"));
     }
+    [Fact]
+    public async Task SettingsShowsPendingCounterAndOpensNotificationInbox()
+    {
+        await Setup(); var item = await Capture(); var navigation = new ImportNavigation();
+        var appState = new AppViewModel(Store(), new TestTheme());
+        var vm = new SettingsViewModel(appState, Store(), navigation);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.True(appState.IsReady); Assert.Contains("1 на проверку", vm.ImportLabel);
+        Assert.Contains(Source.Name, vm.ImportStatus);
+        await vm.ImportInboxCommand.ExecuteAsync(null); Assert.Equal(1, navigation.Opens);
+        await Store().DismissImportAsync(item.Id); await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal("Банковские уведомления", vm.ImportLabel);
+    }
+    private sealed class TestTheme : IThemeService { public void Apply(ThemePreference theme) { } }
+    private sealed class ImportNavigation : IImportNavigation
+    {
+        public int Opens { get; private set; }
+        public Task OpenInboxAsync() { Opens++; return Task.CompletedTask; }
+        public Task ReviewAsync(string id) => Task.CompletedTask;
+        public Task<NotificationSource?> ChooseSourceAsync(IReadOnlyList<NotificationSource> sources) => Task.FromResult<NotificationSource?>(null);
+        public Task<bool> ConfirmAsync(string title, string message) => Task.FromResult(true);
+    }
+
     private sealed class Navigation : IFinanceNavigation
     {
         public int Distributions { get; private set; }

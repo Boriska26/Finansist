@@ -16,7 +16,6 @@
       <VerticalStackLayout Spacing="8"><Label Text="Всего на счетах" TextColor="#D4EDDF" /><Label Text="{Binding TotalText}" FontSize="32" FontAttributes="Bold" TextColor="White" /><Label Text="Текущий баланс · российские рубли" TextColor="#D4EDDF" FontSize="14" /></VerticalStackLayout>
      </Border>
      <Border IsVisible="{Binding IsEmpty}"><VerticalStackLayout Spacing="8"><Label Text="Добавьте первый счёт" Style="{StaticResource Section}" /><Label Text="Например, наличные или банковскую карту. Укажите текущий остаток — он станет отправной точкой учёта." Style="{StaticResource Muted}" /></VerticalStackLayout></Border>
-     <Button Text="{Binding ImportLabel}" Command="{Binding ImportInboxCommand}" IsEnabled="{Binding IsIdle}" Style="{StaticResource Secondary}" />
      <Button Text="Пришла зарплата / аванс" Command="{Binding SalaryCommand}" IsEnabled="{Binding HasAccounts}" />
      <Label Text="Счета" Style="{StaticResource Section}" IsVisible="{Binding HasAccounts}" />
      <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding VisibleAccounts}">
@@ -37,6 +36,22 @@
      <Button Text="{Binding AccountsToggleText}" IsVisible="{Binding CanToggleAccounts}" Command="{Binding ToggleAccountsCommand}" IsEnabled="{Binding IsIdle}" Style="{StaticResource Secondary}" />
      <Label Text="Удерживайте ⋮⋮ справа и перетащите счёт выше или ниже. Первый счёт остаётся виден при сворачивании." IsVisible="{Binding IsAccountsExpanded}" Style="{StaticResource Muted}" />
      <Label Text="Операции" Style="{StaticResource Section}" />
+     <Button Text="Фильтр операций" Command="{Binding ToggleHistoryFiltersCommand}" IsEnabled="{Binding IsIdle}" Style="{StaticResource Secondary}" />
+     <VerticalStackLayout IsVisible="{Binding ShowHistoryFilters}" IsEnabled="{Binding IsIdle}" Spacing="10">
+      <Label Text="Период" FontAttributes="Bold" />
+      <Picker ItemsSource="{Binding HistoryPeriods}" SelectedIndex="{Binding HistoryPeriodIndex}" Title="Последние 10, период или всё время" />
+      <VerticalStackLayout IsVisible="{Binding ShowDateRange}" Spacing="8">
+       <Label Text="С даты (включительно)" /><DatePicker Date="{Binding HistoryFrom}" MaximumDate="{Binding Today}" Format="dd.MM.yyyy" />
+       <Label Text="По дату (включительно)" /><DatePicker Date="{Binding HistoryTo}" MaximumDate="{Binding Today}" Format="dd.MM.yyyy" />
+      </VerticalStackLayout>
+      <Label Text="Тип операции" FontAttributes="Bold" />
+      <Picker ItemsSource="{Binding HistoryKinds}" SelectedIndex="{Binding HistoryKindIndex}" Title="Все операции, доход, расход или перевод" />
+      <Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" TextColor="{AppThemeBinding Light=#9B321B, Dark=#FFBCA8}" />
+      <Button Text="Применить" Command="{Binding ApplyHistoryFiltersCommand}" />
+      <Button Text="Сбросить к последним 10" Command="{Binding ResetHistoryFiltersCommand}" Style="{StaticResource Secondary}" />
+     </VerticalStackLayout>
+     <Label Text="{Binding HistorySummary}" Style="{StaticResource Muted}" />
+     <Label Text="По выбранному периоду и типу операций ничего не найдено." IsVisible="{Binding NoMatchingOperations}" Style="{StaticResource Muted}" />
      <Label Text="Операций пока нет. Начальный остаток счёта не считается доходом." Style="{StaticResource Muted}" IsVisible="{Binding NoOperations}" />
     </VerticalStackLayout>
    </CollectionView.Header>
@@ -48,7 +63,7 @@
     </VerticalStackLayout></Border>
    </DataTemplate></CollectionView.ItemTemplate>
    <CollectionView.Footer><VerticalStackLayout Padding="20,8,20,16" Spacing="16">
-    <Button Text="Показать ещё" Command="{Binding LoadMoreCommand}" IsVisible="{Binding HasMore}" Style="{StaticResource Secondary}" />
+    <Button Text="Показать ещё 10" Command="{Binding LoadMoreCommand}" IsVisible="{Binding HasMore}" Style="{StaticResource Secondary}" />
     <Label Text="После зарплаты распределите деньги на необходимое, подушку и себя на вкладке «Бюджет»." Style="{StaticResource Muted}" />
    </VerticalStackLayout></CollectionView.Footer>
   </CollectionView>

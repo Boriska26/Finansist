@@ -36,6 +36,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<AppViewModel>();
         builder.Services.AddSingleton<FinancePage>();
         builder.Services.AddSingleton<ShoppingPage>();
+        builder.Services.AddSingleton<SettingsViewModel>();
         builder.Services.AddSingleton<SettingsPage>();
         builder.Services.AddSingleton<AppShell>();
         return builder.Build();

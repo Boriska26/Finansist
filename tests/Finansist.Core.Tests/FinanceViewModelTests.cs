@@ -95,8 +95,10 @@ public sealed class FinanceViewModelTests
         var app = new AppViewModel(new ThemeStore(), new ThemeService());
         var vm = new FinanceViewModel(store, nav, app);
         await vm.RefreshCommand.ExecuteAsync(null);
-        Assert.Equal(50, vm.Operations.Count); Assert.True(vm.HasMore); Assert.False(vm.IsEmpty);
-        vm.LoadMoreCommand.Execute(null);
+        Assert.Equal(10, vm.Operations.Count); Assert.False(vm.HasMore); Assert.False(vm.IsEmpty);
+        vm.HistoryPeriodIndex = 2; await vm.ApplyHistoryFiltersCommand.ExecuteAsync(null);
+        Assert.Equal(10, vm.Operations.Count); Assert.True(vm.HasMore);
+        while (vm.HasMore) vm.LoadMoreCommand.Execute(null);
         Assert.Equal(65, vm.Operations.Count); Assert.False(vm.HasMore);
         store.Snapshot = FinanceSnapshot.Empty;
         await vm.RefreshCommand.ExecuteAsync(null);
@@ -155,6 +157,96 @@ public sealed class FinanceViewModelTests
         Assert.False(vm.CanToggleAccounts); Assert.Empty(vm.VisibleAccounts);
         await vm.ToggleAccountsCommand.ExecuteAsync(null);
         Assert.False(vm.IsAccountsExpanded);
+    }
+
+    private static MemoryStore HistoryStore()
+    {
+        var store = new MemoryStore(); var other = Account() with { Name = "Тестовый второй счёт" };
+        var operations = Enumerable.Range(0, 45).Select(i => new FinanceOperation(Guid.NewGuid().ToString(),
+            (OperationKind)(i % 3), store.Account.Id, i % 3 == 2 ? other.Id : null,
+            100 + i, new DateOnly(2025, 1, 1).AddDays(i), "Синтетика", "")).ToArray();
+        store.Snapshot = Ledger.Calculate([store.Account, other], operations);
+        return store;
+    }
+
+    [Fact]
+    public async Task HistoryDefaultsToTenNewestWithoutChangingLedger()
+    {
+        var store = HistoryStore(); var vm = new FinanceViewModel(store, new Navigation(), new(new ThemeStore(), new ThemeService()));
+        var total = store.Snapshot.TotalMinor;
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal(store.Snapshot.Operations.OrderByDescending(o => o.Date).Take(10).Select(o => o.Id), vm.Operations.Select(r => r.Operation.Id));
+        Assert.False(vm.HasMore); Assert.Equal(total, store.Snapshot.TotalMinor);
+        Assert.Equal(0, vm.HistoryPeriodIndex); Assert.Equal(0, vm.HistoryKindIndex);
+    }
+
+    [Theory]
+    [InlineData(1, OperationKind.Income)]
+    [InlineData(2, OperationKind.Expense)]
+    [InlineData(3, OperationKind.Transfer)]
+    public async Task HistoryCombinesInclusiveDateRangeWithOperationKind(int index, OperationKind kind)
+    {
+        var store = HistoryStore(); var vm = new FinanceViewModel(store, new Navigation(), new(new ThemeStore(), new ThemeService()));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        vm.HistoryPeriodIndex = 1; vm.HistoryKindIndex = index;
+        vm.HistoryFrom = new DateTime(2025, 1, 5); vm.HistoryTo = new DateTime(2025, 1, 20);
+        await vm.ApplyHistoryFiltersCommand.ExecuteAsync(null);
+        var expected = store.Snapshot.Operations.Where(o => o.Kind == kind && o.Date >= new DateOnly(2025, 1, 5) && o.Date <= new DateOnly(2025, 1, 20)).OrderByDescending(o => o.Date).ToArray();
+        Assert.Equal(expected.Select(o => o.Id), vm.Operations.Select(r => r.Operation.Id));
+        Assert.False(vm.HasError); Assert.False(vm.HasMore); Assert.False(vm.NoMatchingOperations);
+    }
+
+    [Fact]
+    public async Task LastTenIncomeMeansTenIncomesRatherThanIncomesAmongLastTenOperations()
+    {
+        var store = HistoryStore(); var vm = new FinanceViewModel(store, new Navigation(), new(new ThemeStore(), new ThemeService()));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        vm.HistoryKindIndex = 1; await vm.ApplyHistoryFiltersCommand.ExecuteAsync(null);
+        Assert.Equal(10, vm.Operations.Count); Assert.All(vm.Operations, row => Assert.Equal(OperationKind.Income, row.Operation.Kind));
+        Assert.False(vm.HasMore);
+        vm.HistoryPeriodIndex = 2; await vm.ApplyHistoryFiltersCommand.ExecuteAsync(null);
+        while (vm.HasMore) vm.LoadMoreCommand.Execute(null);
+        Assert.Equal(15, vm.Operations.Count); Assert.Equal(15, vm.Operations.Select(o => o.Operation.Id).Distinct().Count());
+    }
+
+    [Fact]
+    public async Task InvalidRangeKeepsPreviousResultsAndResetRestoresDefaults()
+    {
+        var store = HistoryStore(); var vm = new FinanceViewModel(store, new Navigation(), new(new ThemeStore(), new ThemeService()));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        var ids = vm.Operations.Select(r => r.Operation.Id).ToArray(); var summary = vm.HistorySummary;
+        vm.HistoryPeriodIndex = 1; vm.HistoryFrom = new DateTime(2025, 1, 20); vm.HistoryTo = new DateTime(2025, 1, 5);
+        await vm.ApplyHistoryFiltersCommand.ExecuteAsync(null);
+        Assert.True(vm.HasError); Assert.Equal(ids, vm.Operations.Select(r => r.Operation.Id)); Assert.Equal(summary, vm.HistorySummary);
+        await vm.ResetHistoryFiltersCommand.ExecuteAsync(null);
+        Assert.False(vm.HasError); Assert.Equal(0, vm.HistoryPeriodIndex); Assert.Equal(0, vm.HistoryKindIndex);
+        Assert.Equal(ids, vm.Operations.Select(r => r.Operation.Id));
+    }
+
+    [Fact]
+    public async Task EmptyFilteredResultIsDistinctFromEmptyJournal()
+    {
+        var store = HistoryStore(); var vm = new FinanceViewModel(store, new Navigation(), new(new ThemeStore(), new ThemeService()));
+        await vm.RefreshCommand.ExecuteAsync(null); var total = vm.TotalText;
+        vm.HistoryPeriodIndex = 1; vm.HistoryFrom = new DateTime(2024, 1, 1); vm.HistoryTo = new DateTime(2024, 1, 31);
+        await vm.ApplyHistoryFiltersCommand.ExecuteAsync(null);
+        Assert.Empty(vm.Operations); Assert.True(vm.NoMatchingOperations); Assert.False(vm.NoOperations); Assert.False(vm.HasMore);
+        Assert.Equal(total, vm.TotalText);
+        await vm.ResetHistoryFiltersCommand.ExecuteAsync(null); Assert.False(vm.NoMatchingOperations); Assert.Equal(10, vm.Operations.Count);
+    }
+
+    [Fact]
+    public async Task RefreshPreservesAppliedFilterAndDoesNotApplyDraftChanges()
+    {
+        var store = HistoryStore(); var vm = new FinanceViewModel(store, new Navigation(), new(new ThemeStore(), new ThemeService()));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        vm.HistoryPeriodIndex = 2; vm.HistoryKindIndex = 1; await vm.ApplyHistoryFiltersCommand.ExecuteAsync(null);
+        vm.LoadMoreCommand.Execute(null); Assert.Equal(15, vm.Operations.Count);
+        vm.HistoryPeriodIndex = 0; vm.HistoryKindIndex = 2;
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal(10, vm.Operations.Count); Assert.True(vm.HasMore);
+        Assert.All(vm.Operations, row => Assert.Equal(OperationKind.Income, row.Operation.Kind));
+        Assert.Contains("За всё время", vm.HistorySummary); Assert.Contains("Доход", vm.HistorySummary);
     }
 
     private sealed class MemoryStore : IFinanceStore

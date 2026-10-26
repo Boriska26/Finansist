@@ -3,8 +3,8 @@ namespace Finansist.App.Views;
 
 public partial class SettingsPage : ContentPage
 {
-    private readonly AppViewModel viewModel;
-    public SettingsPage(AppViewModel viewModel)
+    private readonly SettingsViewModel viewModel;
+    public SettingsPage(SettingsViewModel viewModel)
     {
         InitializeComponent();
         BindingContext = this.viewModel = viewModel;
@@ -12,6 +12,6 @@ public partial class SettingsPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        if (!viewModel.IsReady) await viewModel.InitializeCommand.ExecuteAsync(null);
+        await viewModel.RefreshCommand.ExecuteAsync(null);
     }
 }

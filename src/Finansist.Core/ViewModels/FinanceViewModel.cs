@@ -3,7 +3,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Finansist.Core.Finance;
 using Finansist.Core.Storage;
-using Finansist.Core.Importing;
 
 namespace Finansist.Core.ViewModels;
 
@@ -50,11 +49,9 @@ public sealed record OperationRow(FinanceOperation Operation, string AccountText
 
 public sealed record AccountMove(string SourceId, string TargetId, bool After);
 
-public partial class FinanceViewModel(IFinanceStore store, IFinanceNavigation navigation, AppViewModel appState, IBankImportStore? importStore = null, IImportNavigation? importNavigation = null) : FinanceScreenViewModel
+public partial class FinanceViewModel(IFinanceStore store, IFinanceNavigation navigation, AppViewModel appState) : FinanceScreenViewModel
 {
     public AppViewModel AppState { get; } = appState;
-    [ObservableProperty] private string importLabel = "Банковские уведомления — настроить / проверить";
-    [RelayCommand] private Task ImportInboxAsync() => RunAsync(() => importNavigation?.OpenInboxAsync() ?? Task.CompletedTask);
     public ObservableCollection<AccountBalance> Accounts { get; } = [];
     public ObservableCollection<AccountBalance> VisibleAccounts { get; } = [];
     [ObservableProperty] private bool isAccountsExpanded;
@@ -114,30 +111,77 @@ public partial class FinanceViewModel(IFinanceStore store, IFinanceNavigation na
         UpdateVisibleAccounts();
         HasAccounts = Accounts.Count > 0;
         TotalText = HasAccounts ? Money.Format(snapshot.TotalMinor) : "— ₽";
-        Operations.Clear();
-        AppendOperations();
         IsLoaded = true;
+        RebuildHistory();
         OnPropertyChanged(nameof(NoOperations));
-        if (importStore is not null)
-        {
-            var inbox = await importStore.ReadImportsAsync();
-            ImportLabel = inbox.Pending.Count > 0 ? $"Найдено операций: {inbox.Pending.Count} — проверить" : "Банковские уведомления — настроить / проверить";
-        }
     });
 
-    [RelayCommand]
-    private void LoadMore() => AppendOperations();
-
+    public IReadOnlyList<string> HistoryPeriods { get; } = ["Последние 10", "За период", "За всё время"];
+    public IReadOnlyList<string> HistoryKinds { get; } = ["Все операции", "Доход", "Расход", "Перевод"];
+    [ObservableProperty] private int historyPeriodIndex;
+    [ObservableProperty] private int historyKindIndex;
+    [ObservableProperty] private DateTime? historyFrom = DateTime.Today.AddMonths(-1);
+    [ObservableProperty] private DateTime? historyTo = DateTime.Today;
+    [ObservableProperty] private bool showHistoryFilters;
+    [ObservableProperty] private string historySummary = "Последние 10 · Все операции";
+    private int appliedPeriod;
+    private int appliedKind;
+    private DateOnly appliedFrom;
+    private DateOnly appliedTo;
+    private IReadOnlyList<FinanceOperation> history = [];
+    private int matchedCount;
+    public DateTime Today => DateTime.Today;
+    public bool ShowDateRange => HistoryPeriodIndex == 1;
+    public bool NoMatchingOperations => IsLoaded && snapshot.Operations.Count > 0 && history.Count == 0;
+    partial void OnHistoryPeriodIndexChanged(int value) => OnPropertyChanged(nameof(ShowDateRange));
+    [RelayCommand] private void ToggleHistoryFilters() => ShowHistoryFilters = !ShowHistoryFilters;
+    [RelayCommand] private Task ApplyHistoryFiltersAsync() => RunAsync(() =>
+    {
+        if (HistoryPeriodIndex is < 0 or > 2 || HistoryKindIndex is < 0 or > 3)
+            throw new FinanceValidationException("Выберите период и тип операций.");
+        if (HistoryPeriodIndex == 1 && (HistoryFrom is null || HistoryTo is null || HistoryFrom.Value.Date > HistoryTo.Value.Date))
+            throw new FinanceValidationException("Укажите начало и конец периода. Начало не может быть позже конца.");
+        appliedPeriod = HistoryPeriodIndex; appliedKind = HistoryKindIndex;
+        if (appliedPeriod == 1)
+        {
+            appliedFrom = DateOnly.FromDateTime(HistoryFrom!.Value);
+            appliedTo = DateOnly.FromDateTime(HistoryTo!.Value);
+        }
+        RebuildHistory(); ShowHistoryFilters = false;
+        return Task.CompletedTask;
+    });
+    [RelayCommand] private Task ResetHistoryFiltersAsync() => RunAsync(() =>
+    {
+        HistoryPeriodIndex = 0; HistoryKindIndex = 0;
+        HistoryFrom = DateTime.Today.AddMonths(-1); HistoryTo = DateTime.Today;
+        appliedPeriod = 0; appliedKind = 0;
+        RebuildHistory(); return Task.CompletedTask;
+    });
+    private void RebuildHistory()
+    {
+        IEnumerable<FinanceOperation> query = snapshot.Operations;
+        var kind = appliedKind switch { 1 => OperationKind.Income, 2 => OperationKind.Expense, 3 => OperationKind.Transfer, _ => (OperationKind?)null };
+        if (kind is { } selected) query = query.Where(o => o.Kind == selected);
+        if (appliedPeriod == 1) query = query.Where(o => o.Date >= appliedFrom && o.Date <= appliedTo);
+        var matched = query.OrderByDescending(o => o.Date).ToArray();
+        matchedCount = matched.Length;
+        history = appliedPeriod == 0 ? matched.Take(10).ToArray() : matched;
+        Operations.Clear(); AppendOperations();
+        OnPropertyChanged(nameof(NoMatchingOperations));
+    }
+    [RelayCommand] private void LoadMore() { if (IsIdle) AppendOperations(); }
     private void AppendOperations()
     {
         var names = snapshot.Accounts.ToDictionary(a => a.Id, a => a.Name);
-        foreach (var operation in snapshot.Operations.Skip(Operations.Count).Take(50))
+        foreach (var operation in history.Skip(Operations.Count).Take(10))
         {
             var name = names[operation.AccountId];
             if (operation.DestinationId is not null) name += " → " + names[operation.DestinationId];
             Operations.Add(new OperationRow(operation, name));
         }
-        HasMore = Operations.Count < snapshot.Operations.Count;
+        HasMore = Operations.Count < history.Count;
+        var period = appliedPeriod == 1 ? $"{appliedFrom:dd.MM.yyyy} — {appliedTo:dd.MM.yyyy}" : HistoryPeriods[appliedPeriod];
+        HistorySummary = $"{period} · {HistoryKinds[appliedKind]}\nПоказано {Operations.Count} из {matchedCount}";
     }
 
     [RelayCommand] private Task SalaryAsync() => RunAsync(navigation.EditSalaryAsync);
