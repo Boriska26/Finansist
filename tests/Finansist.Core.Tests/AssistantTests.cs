@@ -43,6 +43,15 @@ public sealed class AssistantTests : IDisposable
         Assert.Throws<FinanceValidationException>(() => ShoppingAssistantProtocol.Prompt("Тестовый суп", 0));
         Assert.Throws<FinanceValidationException>(() => ShoppingAssistantProtocol.Prompt(new string('x', 501), 2));
     }
+    [Fact]
+    public void ExpandedProtocolAcceptsFullIngredientListsAndRejectsOverLimit()
+    {
+        string Json(int count) => JsonSerializer.Serialize(new { title = "Синтетический полный состав", items = Enumerable.Range(1, count).Select(i => new { name = $"Продукт {i}", quantity = 1, unit = "g" }) });
+        var full = ShoppingAssistantProtocol.Parse(Json(32));
+        Assert.Equal(32, full.Items.Count);
+        Assert.All(full.Items, i => Assert.Equal(.001m, i.Quantity));
+        Assert.Throws<FinanceValidationException>(() => ShoppingAssistantProtocol.Parse(Json(33)));
+    }
     private async Task<Product> AddPotato()
     {
         var product = new Product(Guid.NewGuid().ToString(), "Картошка", ProductUnit.Kilogram, 3900, null);

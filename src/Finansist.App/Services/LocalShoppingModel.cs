@@ -53,7 +53,7 @@ public sealed class LocalShoppingModel : ILocalShoppingModel
             return await Task.Run(() =>
             {
                 var clock = Stopwatch.StartNew();
-                CancelCallback cancelled = () => token.IsCancellationRequested || clock.Elapsed > TimeSpan.FromMinutes(3) ? 1 : 0;
+                CancelCallback cancelled = () => token.IsCancellationRequested || clock.Elapsed > TimeSpan.FromMinutes(5) ? 1 : 0;
                 var output = new byte[65536];
                 int result;
                 try { result = GenerateNative(files.ModelPath, prompt, ShoppingAssistantProtocol.Grammar, cancelled, output, output.Length); }

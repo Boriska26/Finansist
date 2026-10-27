@@ -23,7 +23,7 @@ public static class ShoppingAssistantProtocol
 {
     // JSON grammar is also passed to llama.cpp, preventing extra prose and arbitrary fields.
     public const string Grammar = """
-root ::= "{" ws "\"title\":" ws string "," ws "\"items\":" ws "[" ws (item ("," ws item){0,11})? "]" ws "}" ws
+root ::= "{" ws "\"title\":" ws string "," ws "\"items\":" ws "[" ws (item ("," ws item){0,31})? "]" ws "}" ws
 item ::= "{" ws "\"name\":" ws string "," ws "\"quantity\":" ws number "," ws "\"unit\":" ws ("\"kg\"" | "\"l\"" | "\"piece\"" | "\"g\"" | "\"ml\"") ws "}" ws
 string ::= "\"" char{1,80} "\"" ws
 char ::= [^"\\\x00-\x1F] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F]{4})
@@ -36,7 +36,10 @@ ws ::= [ \t\n\r]*
         if (servings is < 1 or > 12) throw new FinanceValidationException("Укажите от 1 до 12 порций.");
         return """
 <|im_start|>system
-Ты помощник по покупкам для домашней кухни. Предложи 3-6 основных продуктов для конкретного блюда на указанное число порций. Не добавляй гарниры, украшения и случайные продукты. Не включай воду, соль и специи: пользователь добавит их при необходимости. Названия короткие, обычные, на русском, без слов "свежий" и других описаний. Не повторяй продукты. Количество должно быть разумным для числа порций. Ответ только JSON: title (название блюда), items. В каждой позиции name, quantity (число) и unit. Мясо, овощи и крупы: unit="g", количество в граммах. Жидкости: unit="ml", миллилитры. Яйца: unit="piece", штуки. Цен нет. Пример структуры: {"title":"Название блюда","items":[{"name":"название продукта","quantity":300,"unit":"g"}]}. Если запрос не о продуктах или блюде, верни items: []. /no_think
+Ты составляешь список покупок для приготовления блюда. Вспомни обычный домашний рецепт запрошенного блюда и перечисли полный состав, чтобы по этому списку его действительно можно было приготовить.
+Нужны конкретные названия всех ингредиентов, включая основные продукты, масло, соль и специи. Не сокращай состав до нескольких позиций. Предположи, что дома ничего нет: пользователь сам удалит ненужное. Не добавляй другие блюда. Выбери один вариант рецепта, без альтернатив и повторов. Названия на русском, короткие, как в продуктовом магазине. Указывай сырые продукты, а не готовые котлеты или полуфабрикаты, если они не запрошены.
+Количество каждого ингредиента рассчитай суммарно на все указанные порции. Учти пожелания пользователя. Перед ответом проверь, что основные ингредиенты блюда не пропущены.
+Ответ только JSON: {"title":"Название блюда","items":[{"name":"Название продукта","quantity":100,"unit":"g"}]}. Полный список до 32 позиций. Твёрдые продукты и специи — в граммах (g), жидкости — в миллилитрах (ml), штучные продукты — в штуках (piece). Количество положительное, не меньше 1 г или 1 мл. Никаких цен, объяснений или шагов приготовления. На запрос не о продуктах верни items: []. /no_think
 <|im_end|>
 <|im_start|>user
 """ + $"\n{request.Trim()}\nПорций: {servings}. /no_think\n<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n";
@@ -49,7 +52,7 @@ ws ::= [ \t\n\r]*
         try
         {
             var response = JsonSerializer.Deserialize<Response>(json, new JsonSerializerOptions { MaxDepth = 5, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow });
-            if (response?.Title is null || (response.Title.Trim().Length is < 1 or > 80 || response.Title.Any(char.IsControl)) || response.Items is null || response.Items.Length is < 1 or > 12)
+            if (response?.Title is null || (response.Title.Trim().Length is < 1 or > 80 || response.Title.Any(char.IsControl)) || response.Items is null || response.Items.Length is < 1 or > 32)
                 throw new FinanceValidationException("Модель не составила подходящий список. Попробуйте конкретное блюдо или перечислите продукты.");
             var result = new List<SuggestedIngredient>();
             foreach (var entry in response.Items)

@@ -28,7 +28,7 @@ extern "C" __attribute__((visibility("default"))) int fin_generate(
   if (aborted(&cancellation_data)) return 1;
   if (!model) return 2;
   auto context_params = llama_context_default_params();
-  context_params.n_ctx = 2048; context_params.n_batch = 256; context_params.n_ubatch = 128;
+  context_params.n_ctx = 4096; context_params.n_batch = 256; context_params.n_ubatch = 128;
   context_params.n_threads = 4; context_params.n_threads_batch = 4;
   context_params.abort_callback = aborted; context_params.abort_callback_data = &cancellation_data;
   std::unique_ptr<llama_context, decltype(&llama_free)> context(llama_init_from_model(model.get(), context_params), llama_free);
@@ -36,7 +36,7 @@ extern "C" __attribute__((visibility("default"))) int fin_generate(
   const auto * vocab = llama_model_get_vocab(model.get());
   const int length = static_cast<int>(std::strlen(prompt));
   int count = -llama_tokenize(vocab, prompt, length, nullptr, 0, true, true);
-  if (count <= 0 || count > 1200) return 3;
+  if (count <= 0 || count > 1800) return 3;
   std::vector<llama_token> tokens(count);
   if (llama_tokenize(vocab, prompt, length, tokens.data(), count, true, true) != count) return 3;
   std::unique_ptr<llama_batch_ext, decltype(&llama_batch_ext_free)> batch(llama_batch_ext_init(context.get()), llama_batch_ext_free);
@@ -62,7 +62,7 @@ extern "C" __attribute__((visibility("default"))) int fin_generate(
   llama_sampler_chain_add(sampler.get(), llama_sampler_init_temp(.4f));
   llama_sampler_chain_add(sampler.get(), llama_sampler_init_dist(1337));
   std::string result;
-  for (int i = 0; i < 768; ++i) {
+  for (int i = 0; i < 2048; ++i) {
    if (aborted(&cancellation_data)) return 1;
    llama_token token = llama_sampler_sample(sampler.get(), context.get(), -1);
    if (llama_vocab_is_eog(vocab, token)) {

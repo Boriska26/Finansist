@@ -78,7 +78,7 @@ if $build; then
     if $offline; then args+=(--offline); fi
     "$root/scripts/build-apk.sh" "${args[@]}"
 fi
-apk="$root/artifacts/Finansist-0.8.0.apk"
+apk="$root/artifacts/Finansist-0.8.1.apk"
 [[ -f "$apk" ]] || fail 'APK не найден. Повторите команду с --build (и --offline, если нет сети NuGet).'
 # Keep existing app data. Never uninstall on signing/version errors.
 "$adb" -s "$device" install -r "$apk" || fail 'Не удалось установить APK. Данные приложения не удалялись; см. сообщение ADB выше.'
