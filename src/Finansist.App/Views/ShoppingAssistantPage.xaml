@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ xmlns:vm="clr-namespace:Finansist.Core.ViewModels;assembly=Finansist.Core" xmlns:views="clr-namespace:Finansist.App.Views"
+ x:Class="Finansist.App.Views.ShoppingAssistantPage" x:Name="Page" x:DataType="vm:ShoppingAssistantViewModel"
+ Title="Помощник покупок" Shell.NavBarIsVisible="True" SafeAreaEdges="Container">
+ <Grid RowDefinitions="*,Auto">
+  <CollectionView ItemsSource="{Binding Rows}" SelectionMode="None">
+   <CollectionView.Header><VerticalStackLayout Padding="20" Spacing="12">
+    <Label Text="Помощник покупок" Style="{StaticResource Title}" />
+    <Label Text="Эксперимент: предложение продуктов для блюда. Проверьте ингредиенты и количества перед покупкой." Style="{StaticResource Muted}" />
+    <Border><VerticalStackLayout Spacing="10">
+     <Label Text="{Binding ModelText}" FontAttributes="Bold" />
+     <Label Text="Модель скачивается отдельно. Запросы обрабатываются на телефоне; финансовые записи помощник не изменяет." Style="{StaticResource Muted}" />
+     <VerticalStackLayout IsEnabled="{Binding IsIdle}" Spacing="8">
+      <Button Text="Скачать / продолжить загрузку модели" Command="{Binding DownloadCommand}" IsVisible="{Binding NeedsModel}" />
+      <Label Text="Для загрузки потребуется около 1,9 ГБ места. Удобнее скачать по Wi-Fi." IsVisible="{Binding NeedsModel}" Style="{StaticResource Muted}" />
+      <Button Text="Удалить файлы модели" Command="{Binding DeleteModelCommand}" IsVisible="{Binding HasModelFiles}" Style="{StaticResource Secondary}" />
+     </VerticalStackLayout>
+     <ProgressBar Progress="{Binding DownloadProgress}" IsVisible="{Binding IsDownloading}" />
+    </VerticalStackLayout></Border>
+    <VerticalStackLayout IsEnabled="{Binding IsIdle}" Spacing="10">
+     <Label Text="Что хотите приготовить или купить?" FontAttributes="Bold" />
+     <Editor Text="{Binding Request}" MaxLength="500" AutoSize="TextChanges" MinimumHeightRequest="100" Placeholder="Например: жаркое из курицы с картошкой на два дня" />
+     <Label Text="Порций" /><Entry Text="{Binding Servings}" Keyboard="Numeric" MaxLength="2" />
+     <Button Text="Составить список" Command="{Binding GenerateCommand}" IsEnabled="{Binding ModelReady}" />
+    </VerticalStackLayout>
+    <Label Text="{Binding Status}" Style="{StaticResource Muted}" />
+    <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />
+    <Button Text="Отменить" Command="{Binding CancelCommand}" IsVisible="{Binding IsBusy}" Style="{StaticResource Secondary}" />
+    <Border IsVisible="{Binding HasError}"><Label Text="{Binding ErrorMessage}" /></Border>
+    <VerticalStackLayout IsVisible="{Binding HasDraft}" IsEnabled="{Binding IsIdle}" Spacing="10">
+     <Label Text="Черновик списка" Style="{StaticResource Section}" />
+     <Entry Text="{Binding Title}" MaxLength="80" Placeholder="Название списка" />
+     <Label Text="Выберите подходящие товары. Ненайденные можно добавить в каталог прямо отсюда. Лишние и уже имеющиеся дома — удалите из черновика." Style="{StaticResource Muted}" />
+    </VerticalStackLayout>
+   </VerticalStackLayout></CollectionView.Header>
+   <CollectionView.ItemTemplate><DataTemplate x:DataType="vm:AssistantIngredientRow">
+    <Border Padding="16" Margin="20,0,20,12" IsEnabled="{Binding ViewModel.IsIdle, Source={x:Reference Page}, x:DataType=views:ShoppingAssistantPage}"><VerticalStackLayout Spacing="10">
+     <Entry Text="{Binding Name}" MaxLength="80" IsEnabled="{Binding NeedsProduct}" Placeholder="Название продукта" />
+     <Grid ColumnDefinitions="*,*" ColumnSpacing="8"><Entry Text="{Binding Quantity}" Keyboard="Numeric" Placeholder="Количество" /><Picker Grid.Column="1" ItemsSource="{Binding Units}" SelectedIndex="{Binding UnitIndex}" /></Grid>
+     <Label Text="{Binding Notice}" Style="{StaticResource Muted}" />
+     <Label Text="{Binding PriceText}" Style="{StaticResource Muted}" /><Label Text="{Binding CostText}" FontAttributes="Bold" />
+     <Picker ItemsSource="{Binding Candidates}" ItemDisplayBinding="{Binding Name, x:DataType=vm:ProductChoice}" SelectedItem="{Binding SelectedCandidate}" IsVisible="{Binding HasCandidates}" Title="Найдены варианты — выберите товар" />
+     <Picker ItemsSource="{Binding Purposes}" SelectedIndex="{Binding PurposeIndex}" Title="Назначение" />
+     <Button Text="Выбрать из каталога" Command="{Binding ViewModel.PickProductCommand, Source={x:Reference Page}, x:DataType=views:ShoppingAssistantPage}" CommandParameter="{Binding .}" Style="{StaticResource Secondary}" />
+     <Button Text="Добавить в каталог" Command="{Binding ViewModel.AddProductCommand, Source={x:Reference Page}, x:DataType=views:ShoppingAssistantPage}" CommandParameter="{Binding .}" IsVisible="{Binding NeedsProduct}" Style="{StaticResource Secondary}" />
+     <Button Text="Убрать из черновика" Command="{Binding ViewModel.RemoveCommand, Source={x:Reference Page}, x:DataType=views:ShoppingAssistantPage}" CommandParameter="{Binding .}" Style="{StaticResource Secondary}" />
+    </VerticalStackLayout></Border>
+   </DataTemplate></CollectionView.ItemTemplate>
+   <CollectionView.Footer><VerticalStackLayout Padding="20" Spacing="10" IsVisible="{Binding HasDraft}">
+    <Label Text="{Binding EstimateText}" FontSize="17" />
+    <Label Text="Это приблизительная стоимость по каталогу. Сохранение создаёт только список покупок. Цены и финансовые операции модель не придумывает и не записывает." Style="{StaticResource Muted}" />
+    <Label Text="Qwen — Apache 2.0 · llama.cpp — MIT. Модель и лицензии указаны в инструкции к версии." Style="{StaticResource Muted}" />
+   </VerticalStackLayout></CollectionView.Footer>
+  </CollectionView>
+  <Button Grid.Row="1" Text="Сохранить как список" Command="{Binding SaveCommand}" IsEnabled="{Binding CanSave}" Margin="16,10" />
+ </Grid>
+</ContentPage>

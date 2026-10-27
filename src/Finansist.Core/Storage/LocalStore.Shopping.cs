@@ -49,6 +49,11 @@ public sealed partial class LocalStore
     }));
     public Task<ShoppingSnapshot> DeleteListAsync(string id, long revision) => RunAsync(db => ChangeShopping(db, revision,
         doc => doc with { Lists = doc.Lists.Where(l => l.Id != id).ToList() }));
+    public Task<ShoppingSnapshot> SaveProposedListAsync(ShoppingList list, long revision) => RunAsync(db => ChangeShopping(db, revision, doc =>
+    {
+        BudgetCalculator.Require(!doc.Lists.Any(l => l.Id == list.Id), "Этот список уже сохранён.");
+        return doc with { Lists = [..doc.Lists, list with { Name = list.Name.Trim() }] };
+    }));
     public Task<ShoppingSnapshot> SaveShoppingItemAsync(string listId, ShoppingItem item, Product? newProduct, long revision) => RunAsync(db => ChangeShopping(db, revision, doc =>
     {
         var list = doc.Lists.SingleOrDefault(l => l.Id == listId) ?? throw new FinanceValidationException("Список уже удалён. Вернитесь к покупкам.");

@@ -18,6 +18,7 @@ public partial class App : Application
         var review = services.GetRequiredService<Finansist.Core.ViewModels.ImportReviewViewModel>();
         var window = new Window(shell);
         shell.Loaded += async (_, _) => await review.CheckNewCommand.ExecuteAsync(null);
+        window.Stopped += (_, _) => services.GetRequiredService<Finansist.Core.ViewModels.ShoppingAssistantViewModel>().CancelWork();
         window.Resumed += (_, _) => MainThread.BeginInvokeOnMainThread(async () =>
         {
             await services.GetRequiredService<Finansist.Core.ViewModels.FinanceViewModel>().RefreshCommand.ExecuteAsync(null);

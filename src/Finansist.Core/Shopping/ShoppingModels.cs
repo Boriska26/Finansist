@@ -23,6 +23,7 @@ public interface IShoppingStore
     Task<ShoppingSnapshot> DeleteProductAsync(string id, long revision);
     Task<ShoppingSnapshot> SaveListAsync(string id, string name, long revision);
     Task<ShoppingSnapshot> DeleteListAsync(string id, long revision);
+    Task<ShoppingSnapshot> SaveProposedListAsync(ShoppingList list, long revision);
     Task<ShoppingSnapshot> SaveShoppingItemAsync(string listId, ShoppingItem item, Product? newProduct, long revision);
     Task<ShoppingSnapshot> DeleteShoppingItemAsync(string listId, string itemId, long revision);
 }

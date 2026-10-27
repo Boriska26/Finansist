@@ -138,6 +138,7 @@ public partial class ProductEditorViewModel(IShoppingStore store, IShoppingNavig
     private string id = Guid.NewGuid().ToString();
     private long revision;
     private bool loaded;
+    private Action<Product>? onSaved;
     public IReadOnlyList<string> Units { get; } = ["шт.", "кг", "л"];
     public IReadOnlyList<string> Purposes { get; } = ["Необходимое", "Для себя"];
     [ObservableProperty] private string name = "";
@@ -158,7 +159,11 @@ public partial class ProductEditorViewModel(IShoppingStore store, IShoppingNavig
     [ObservableProperty] private int purposeIndex;
     [ObservableProperty] private bool canDelete;
     [ObservableProperty] private string priceHint = "Цена приблизительная. Поле можно оставить пустым.";
-    public void Configure(string? productId) { id = productId ?? Guid.NewGuid().ToString(); CanDelete = productId is not null; loaded = false; }
+    public void Configure(string? productId) { id = productId ?? Guid.NewGuid().ToString(); CanDelete = productId is not null; loaded = false; onSaved = null; }
+    public void ConfigureSuggestion(string name, ProductUnit unit, Action<Product> saved)
+    {
+        Configure(null); Name = name; UnitIndex = (int)unit; onSaved = saved;
+    }
     [RelayCommand] private Task LoadAsync() => RunAsync(async () =>
     {
         if (loaded) return;
@@ -176,7 +181,8 @@ public partial class ProductEditorViewModel(IShoppingStore store, IShoppingNavig
     [RelayCommand] private Task SaveAsync() => RunAsync(async () =>
     {
         if (!loaded) throw new FinanceValidationException("Сначала загрузите форму.");
-        await store.SaveProductAsync(new(id, Name, (ProductUnit)UnitIndex, ShoppingCalculator.ParsePrice(Price), null, (ShoppingPurpose)PurposeIndex, ShoppingCalculator.ParseQuantity(PriceQuantity)), revision);
+        var result = await store.SaveProductAsync(new(id, Name, (ProductUnit)UnitIndex, ShoppingCalculator.ParsePrice(Price), null, (ShoppingPurpose)PurposeIndex, ShoppingCalculator.ParseQuantity(PriceQuantity)), revision);
+        onSaved?.Invoke(result.Document.Products.Single(p => p.Id == id));
         await navigation.BackAsync();
     });
     [RelayCommand] private Task DeleteAsync() => RunAsync(async () =>

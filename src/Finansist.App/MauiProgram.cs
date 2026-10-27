@@ -5,6 +5,7 @@ using Finansist.Core.Importing;
 using Finansist.Core.Budgeting;
 using Finansist.Core.Finance;
 using Finansist.Core.Shopping;
+using Finansist.Core.Assistant;
 using Finansist.Core.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -45,6 +46,9 @@ public static class MauiProgram
         builder.Services.AddSingleton<FinancePage>();
         builder.Services.AddSingleton<IShoppingStore>(services => services.GetRequiredService<LocalStore>());
         builder.Services.AddSingleton<IShoppingNavigation, ShoppingNavigation>();
+        builder.Services.AddSingleton<ILocalShoppingModel, LocalShoppingModel>();
+        builder.Services.AddSingleton<IShoppingAssistantNavigation, ShoppingAssistantNavigation>();
+        builder.Services.AddSingleton<ShoppingAssistantViewModel>();
         builder.Services.AddSingleton<ShoppingViewModel>();
         builder.Services.AddTransient<ShoppingListViewModel>();
         builder.Services.AddTransient<ProductEditorViewModel>();
