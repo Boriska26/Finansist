@@ -379,6 +379,7 @@ public sealed class ShoppingTests : IDisposable
         public Task<string?> AskListNameAsync(string? current) => Task.FromResult<string?>(null);
         public Task<bool> ConfirmAsync(string title, string message) => Task.FromResult(true);
         public Task OpenListAsync(string id) => Task.CompletedTask;
+        public Task PickProductAsync(Action<Product?> selected) => Task.CompletedTask;
         public string? EditedProduct { get; private set; }
         public Task EditProductAsync(string? id) { EditedProduct = id; return Task.CompletedTask; }
         public Task EditItemAsync(string listId, string? itemId) => Task.CompletedTask;

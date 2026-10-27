@@ -1,5 +1,6 @@
 using Finansist.App.Views;
 using Finansist.Core.ViewModels;
+using Finansist.Core.Shopping;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Finansist.App.Services;
@@ -23,6 +24,11 @@ public sealed class ShoppingNavigation(IServiceProvider services) : IShoppingNav
     {
         var vm = services.GetRequiredService<ShoppingItemEditorViewModel>(); vm.Configure(listId, itemId);
         return Shell.Current.Navigation.PushAsync(new ShoppingItemEditorPage(vm));
+    }
+    public Task PickProductAsync(Action<Product?> selected)
+    {
+        var vm = services.GetRequiredService<ProductPickerViewModel>(); vm.Configure(selected);
+        return Shell.Current.Navigation.PushAsync(new ProductPickerPage(vm));
     }
     public async Task BackAsync() => await Shell.Current.Navigation.PopAsync();
 }

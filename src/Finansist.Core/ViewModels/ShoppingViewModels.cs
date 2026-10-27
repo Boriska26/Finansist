@@ -15,6 +15,7 @@ public interface IShoppingNavigation
     Task OpenListAsync(string id);
     Task EditProductAsync(string? id);
     Task EditItemAsync(string listId, string? itemId);
+    Task PickProductAsync(Action<Product?> selected);
     Task BackAsync();
 }
 public sealed record ProductRow(Product Product)
@@ -38,14 +39,11 @@ public partial class ShoppingViewModel(IShoppingStore store, IShoppingNavigation
 {
     private ShoppingSnapshot snapshot = new(0, new());
     public ObservableCollection<ShoppingListRow> Lists { get; } = [];
-    public ObservableCollection<ProductRow> Products { get; } = [];
+    public CatalogBrowserViewModel CatalogBrowser { get; } = new();
     [ObservableProperty] private bool showCatalog;
-    [ObservableProperty] private string search = "";
     [ObservableProperty] private bool noLists = true;
-    [ObservableProperty] private bool noProducts = true;
     public bool ShowLists => !ShowCatalog;
     partial void OnShowCatalogChanged(bool value) => OnPropertyChanged(nameof(ShowLists));
-    partial void OnSearchChanged(string value) => FilterProducts();
     [RelayCommand] private void Catalog() => ShowCatalog = true;
     [RelayCommand] private void ListTab() => ShowCatalog = false;
     [RelayCommand] private Task RefreshAsync() => RunAsync(LoadAsync);
@@ -59,13 +57,7 @@ public partial class ShoppingViewModel(IShoppingStore store, IShoppingNavigation
             Lists.Add(new(list.Id, list.Name, $"Позиций: {list.Items.Count} · стоимость ≈ {Money.Format(estimate.TotalMinor)}" +
                 (estimate.UnknownCount > 0 ? $"\nБез цены: {estimate.UnknownCount}" : "")));
         }
-        NoLists = Lists.Count == 0; FilterProducts();
-    }
-    private void FilterProducts()
-    {
-        Products.Clear();
-        foreach (var product in snapshot.Document.Products.Where(p => p.Name.Contains(Search.Trim(), StringComparison.CurrentCultureIgnoreCase)).OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase)) Products.Add(new(product));
-        NoProducts = Products.Count == 0;
+        NoLists = Lists.Count == 0; CatalogBrowser.SetProducts(snapshot.Document.Products);
     }
     [RelayCommand] private Task AddListAsync() => RunAsync(async () =>
     {
@@ -247,7 +239,7 @@ public partial class ShoppingItemEditorViewModel(IShoppingStore store, IShopping
     {
         PurposeIndex = (int)(value?.Product?.Purpose ?? ShoppingPurpose.Necessary);
         if (!IsEditing) Quantity = ShoppingCalculator.QuantityText(value?.Product?.PriceQuantity ?? 1m);
-        OnPropertyChanged(nameof(IsNewProduct)); OnPropertyChanged(nameof(CanEditPrice)); NotifyPreview();
+        OnPropertyChanged(nameof(IsNewProduct)); OnPropertyChanged(nameof(CanEditPrice)); OnPropertyChanged(nameof(ProductName)); NotifyPreview();
     }
     public void Configure(string list, string? itemId)
     {
@@ -269,6 +261,12 @@ public partial class ShoppingItemEditorViewModel(IShoppingStore store, IShopping
         if (loaded) { PurposeIndex = savedPurpose; Quantity = savedQuantity; StateIndex = savedState; }
         else if (item is not null) { Quantity = ShoppingCalculator.QuantityText(item.Quantity); PurposeIndex = (int)item.Purpose; StateIndex = (int)item.State; }
         originalItem = item; revision = snapshot.Revision; loaded = true; NotifyPreview();
+    });
+    public string ProductName => SelectedProduct?.Product?.Name ?? "Новый товар";
+    [RelayCommand] private Task PickProductAsync() => RunAsync(async () =>
+    {
+        if (!loaded || IsEditing) return;
+        await navigation.PickProductAsync(product => SelectedProduct = product is null ? Products[0] : new ProductChoice(product, product.Name));
     });
     [RelayCommand] private Task EditPriceAsync() => RunAsync(async () =>
     {

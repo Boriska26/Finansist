@@ -8,7 +8,8 @@
   <Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
   <Button Text="Повторить загрузку" Command="{Binding LoadCommand}" IsVisible="{Binding HasError}" Style="{StaticResource Secondary}" />
   <VerticalStackLayout IsEnabled="{Binding IsIdle}" Spacing="12">
-   <Label Text="Товар" /><Picker ItemsSource="{Binding Products}" ItemDisplayBinding="{Binding Name, x:DataType=vm:ProductChoice}" SelectedItem="{Binding SelectedProduct}" IsEnabled="{Binding CanChooseProduct}" />
+   <Label Text="{Binding ProductName}" Style="{StaticResource Section}" />
+   <Button Text="Выбрать из каталога" Command="{Binding PickProductCommand}" IsVisible="{Binding CanChooseProduct}" Style="{StaticResource Secondary}" />
    <VerticalStackLayout IsVisible="{Binding IsNewProduct}" Spacing="12">
     <Label Text="Название нового товара" /><Entry Text="{Binding Name}" MaxLength="80" Placeholder="Например, помидоры" />
     <Label Text="Единица" /><Picker ItemsSource="{Binding Units}" SelectedIndex="{Binding UnitIndex}" />

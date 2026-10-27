@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ xmlns:vm="clr-namespace:Finansist.Core.ViewModels;assembly=Finansist.Core" xmlns:views="clr-namespace:Finansist.App.Views"
+ x:Class="Finansist.App.Views.ProductPickerPage" x:Name="Page" x:DataType="vm:ProductPickerViewModel"
+ Title="Выбор товара" Shell.NavBarIsVisible="True" SafeAreaEdges="Container">
+ <Grid Padding="20,12" RowDefinitions="Auto,*,Auto" RowSpacing="10">
+  <VerticalStackLayout Spacing="8">
+   <Label Text="Выберите товар" Style="{StaticResource Title}" />
+   <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />
+   <Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+   <Button Text="Повторить" Command="{Binding RefreshCommand}" IsVisible="{Binding HasError}" Style="{StaticResource Secondary}" />
+  </VerticalStackLayout>
+  <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*" RowSpacing="10" BindingContext="{Binding Catalog}" x:DataType="vm:CatalogBrowserViewModel">
+   <Entry Text="{Binding Search}" Placeholder="Название товара" MaxLength="80" />
+   <Label Grid.Row="1" Text="{Binding Status}" Style="{StaticResource Muted}" />
+   <CollectionView Grid.Row="2" ItemsSource="{Binding Groups}" IsGrouped="True" SelectionMode="None">
+    <CollectionView.EmptyView><Label Text="Ничего не найдено. Измените запрос или добавьте новый товар." Style="{StaticResource Muted}" /></CollectionView.EmptyView>
+    <CollectionView.GroupHeaderTemplate><DataTemplate x:DataType="vm:ProductResultGroup"><Label Text="{Binding Title}" FontAttributes="Bold" Margin="0,8" /></DataTemplate></CollectionView.GroupHeaderTemplate>
+    <CollectionView.ItemTemplate><DataTemplate x:DataType="vm:ProductRow">
+     <Grid Padding="0,12" RowDefinitions="Auto,Auto,1" RowSpacing="6" MinimumHeightRequest="56" BackgroundColor="Transparent"
+      IsEnabled="{Binding ViewModel.IsIdle, Source={x:Reference Page}, x:DataType=views:ProductPickerPage}" SemanticProperties.Description="{Binding Name}" SemanticProperties.Hint="Нажмите для выбора товара">
+      <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding ViewModel.ChooseCommand, Source={x:Reference Page}, x:DataType=views:ProductPickerPage}" CommandParameter="{Binding .}" /></Grid.GestureRecognizers>
+      <Label Text="{Binding Name}" FontSize="18" FontAttributes="Bold" InputTransparent="True" />
+      <Label Grid.Row="1" Text="{Binding Details}" Style="{StaticResource Muted}" InputTransparent="True" />
+      <BoxView Grid.Row="2" HeightRequest="1" Color="{AppThemeBinding Light=#DDE0E6, Dark=#3C4048}" InputTransparent="True" />
+     </Grid>
+    </DataTemplate></CollectionView.ItemTemplate>
+    <CollectionView.Footer><Button Text="Показать ещё 20" Command="{Binding LoadMoreCommand}" IsVisible="{Binding HasMore}" Style="{StaticResource Secondary}" Margin="0,8" /></CollectionView.Footer>
+   </CollectionView>
+  </Grid>
+  <Button Grid.Row="2" Text="+ Новый товар" Command="{Binding NewProductCommand}" IsEnabled="{Binding IsIdle}" />
+ </Grid>
+</ContentPage>

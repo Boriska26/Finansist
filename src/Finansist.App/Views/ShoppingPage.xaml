@@ -16,15 +16,20 @@
     <Button Text="Открыть список" Command="{Binding ViewModel.OpenListCommand, Source={x:Reference Page}, x:DataType=views:ShoppingPage}" CommandParameter="{Binding .}" Style="{StaticResource Secondary}" />
    </VerticalStackLayout></Border></DataTemplate></CollectionView.ItemTemplate>
   </CollectionView>
-  <Grid Grid.Row="1" RowDefinitions="Auto,*" RowSpacing="10" IsVisible="{Binding ShowCatalog}">
-   <Entry Text="{Binding Search}" Placeholder="Найти товар в каталоге" />
-   <CollectionView Grid.Row="1" ItemsSource="{Binding Products}" SelectionMode="None">
-    <CollectionView.EmptyView><Label Text="Товаров не найдено. Добавьте товар или измените поиск." Style="{StaticResource Muted}" /></CollectionView.EmptyView>
-    <CollectionView.ItemTemplate><DataTemplate x:DataType="vm:ProductRow"><Border Margin="0,0,0,10" Padding="16"><VerticalStackLayout Spacing="8">
-     <Label Text="{Binding Name}" Style="{StaticResource Section}" /><Label Text="{Binding Details}" Style="{StaticResource Muted}" />
-     <Button Text="Изменить товар" Command="{Binding ViewModel.EditProductCommand, Source={x:Reference Page}, x:DataType=views:ShoppingPage}" CommandParameter="{Binding .}" Style="{StaticResource Secondary}" />
-    </VerticalStackLayout></Border></DataTemplate></CollectionView.ItemTemplate>
-   </CollectionView>
+  <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*" RowSpacing="10" IsVisible="{Binding ShowCatalog}">
+   <Grid Grid.RowSpan="3" RowDefinitions="Auto,Auto,*" RowSpacing="10" BindingContext="{Binding CatalogBrowser}" x:DataType="vm:CatalogBrowserViewModel">
+    <Entry Text="{Binding Search}" Placeholder="Найти товар в каталоге" MaxLength="80" />
+    <Label Grid.Row="1" Text="{Binding Status}" Style="{StaticResource Muted}" />
+    <CollectionView Grid.Row="2" ItemsSource="{Binding Groups}" IsGrouped="True" SelectionMode="None">
+     <CollectionView.EmptyView><Label Text="Товаров не найдено. Добавьте товар или измените поиск." Style="{StaticResource Muted}" /></CollectionView.EmptyView>
+     <CollectionView.GroupHeaderTemplate><DataTemplate x:DataType="vm:ProductResultGroup"><Label Text="{Binding Title}" FontAttributes="Bold" Margin="0,8" /></DataTemplate></CollectionView.GroupHeaderTemplate>
+     <CollectionView.ItemTemplate><DataTemplate x:DataType="vm:ProductRow"><Border Margin="0,0,0,10" Padding="16"><VerticalStackLayout Spacing="8">
+      <Label Text="{Binding Name}" Style="{StaticResource Section}" /><Label Text="{Binding Details}" Style="{StaticResource Muted}" />
+      <Button Text="Изменить товар" Command="{Binding ViewModel.EditProductCommand, Source={x:Reference Page}, x:DataType=views:ShoppingPage}" CommandParameter="{Binding .}" Style="{StaticResource Secondary}" />
+     </VerticalStackLayout></Border></DataTemplate></CollectionView.ItemTemplate>
+     <CollectionView.Footer><Button Text="Показать ещё 20" Command="{Binding LoadMoreCommand}" IsVisible="{Binding HasMore}" Style="{StaticResource Secondary}" Margin="0,8" /></CollectionView.Footer>
+    </CollectionView>
+   </Grid>
   </Grid>
   <Grid Grid.Row="2" IsEnabled="{Binding IsIdle}"><Button Text="+ Список покупок" Command="{Binding AddListCommand}" IsVisible="{Binding ShowLists}" /><Button Text="+ Товар" Command="{Binding AddProductCommand}" IsVisible="{Binding ShowCatalog}" /></Grid>
  </Grid>
