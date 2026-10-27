@@ -16,16 +16,29 @@
     <Label Text="Цены примерные и могут измениться. Прогноз относится к этому списку. Покупки не создают расходы и не переводят деньги между счетами." Style="{StaticResource Muted}" />
     <Label Text="Добавьте товары из каталога или создайте новый прямо в списке." IsVisible="{Binding IsEmpty}" Style="{StaticResource Muted}" />
    </VerticalStackLayout></CollectionView.Header>
-   <CollectionView.ItemTemplate><DataTemplate x:DataType="vm:ShoppingItemRow"><Border Padding="16" Margin="20,0,20,10"><VerticalStackLayout Spacing="8">
-    <Label Text="{Binding Name}" Style="{StaticResource Section}" /><Label Text="{Binding Details}" /><Label Text="{Binding Status}" Style="{StaticResource Muted}" />
-    <Button Text="{Binding ToggleText}" Command="{Binding ViewModel.ToggleItemCommand, Source={x:Reference Page}, x:DataType=views:ShoppingListPage}" CommandParameter="{Binding .}" Style="{StaticResource Secondary}" />
-    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-     <Button Text="Изменить" Command="{Binding ViewModel.EditItemCommand, Source={x:Reference Page}, x:DataType=views:ShoppingListPage}" CommandParameter="{Binding .}" Style="{StaticResource Secondary}" />
-     <Button Grid.Column="1" Text="Цена" Command="{Binding ViewModel.EditPriceCommand, Source={x:Reference Page}, x:DataType=views:ShoppingListPage}" CommandParameter="{Binding .}" Style="{StaticResource Secondary}" />
+   <CollectionView.ItemTemplate><DataTemplate x:DataType="vm:ShoppingItemRow">
+    <Grid Padding="20,10" ColumnDefinitions="*,52" RowDefinitions="Auto,1" ColumnSpacing="8" RowSpacing="10"
+     IsEnabled="{Binding ViewModel.IsIdle, Source={x:Reference Page}, x:DataType=views:ShoppingListPage}">
+     <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="5" ColumnSpacing="8" MinimumHeightRequest="48"
+      BackgroundColor="Transparent" SemanticProperties.Description="{Binding Name}" SemanticProperties.Hint="Нажмите для изменения или удаления позиции">
+      <Grid.Resources><Style TargetType="Label" BasedOn="{StaticResource BaseLabel}">
+       <Style.Triggers><DataTrigger TargetType="Label" Binding="{Binding IsInCart}" Value="True"><Setter Property="TextDecorations" Value="Strikethrough" /></DataTrigger></Style.Triggers>
+      </Style></Grid.Resources>
+      <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding ViewModel.EditItemCommand, Source={x:Reference Page}, x:DataType=views:ShoppingListPage}" CommandParameter="{Binding .}" /></Grid.GestureRecognizers>
+      <Label Text="{Binding Name}" FontSize="18" FontAttributes="Bold" LineBreakMode="TailTruncation" VerticalOptions="Center" InputTransparent="True" />
+      <Label Grid.Column="1" Text="{Binding CostText}" FontSize="16" VerticalOptions="Center" InputTransparent="True" />
+      <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Details}" FontSize="14" TextColor="{AppThemeBinding Light=#62666F, Dark=#B8BBC4}" InputTransparent="True" />
+     </Grid>
+     <ImageButton Grid.Column="1" Source="{AppThemeBinding Light=cart_light.png, Dark=cart_dark.png}" BackgroundColor="Transparent" CornerRadius="12" Padding="12"
+      WidthRequest="52" HeightRequest="52" VerticalOptions="Center" IsEnabled="{Binding CanToggleCart}" SemanticProperties.Description="{Binding CartHint}"
+      Command="{Binding ViewModel.ToggleItemCommand, Source={x:Reference Page}, x:DataType=views:ShoppingListPage}" CommandParameter="{Binding .}">
+      <ImageButton.Triggers><DataTrigger TargetType="ImageButton" Binding="{Binding IsInCart}" Value="True"><Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#E8EDF6, Dark=#30343C}" /></DataTrigger><DataTrigger TargetType="ImageButton" Binding="{Binding CanToggleCart}" Value="False"><Setter Property="Opacity" Value="0.35" /></DataTrigger></ImageButton.Triggers>
+     </ImageButton>
+     <BoxView Grid.Row="1" Grid.ColumnSpan="2" HeightRequest="1" Color="{AppThemeBinding Light=#DDE0E6, Dark=#3C4048}" InputTransparent="True" />
     </Grid>
-   </VerticalStackLayout></Border></DataTemplate></CollectionView.ItemTemplate>
+   </DataTemplate></CollectionView.ItemTemplate>
    <CollectionView.Footer><VerticalStackLayout Padding="20,10" Spacing="10">
-    <Label Text="«Куплено» и «Есть дома» исключены из предстоящих трат. Фактический расход подтверждается отдельно в финансах." Style="{StaticResource Muted}" />
+    <Label Text="Корзина — отметка, что товар уже взят: сумма списка не меняется. Для изменения или удаления нажмите на строку. Позиции «Есть дома» не включены в прогноз." Style="{StaticResource Muted}" />
     <Button Text="Переименовать список" Command="{Binding RenameCommand}" Style="{StaticResource Secondary}" />
     <Button Text="Удалить список" Command="{Binding DeleteCommand}" Style="{StaticResource Secondary}" />
    </VerticalStackLayout></CollectionView.Footer>

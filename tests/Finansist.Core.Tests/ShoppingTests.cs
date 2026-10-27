@@ -33,15 +33,15 @@ public sealed class ShoppingTests : IDisposable
     }
 
     [Theory]
-    [InlineData(ShoppingItemState.Bought)]
-    [InlineData(ShoppingItemState.AtHome)]
-    public async Task MarkingItemsRemovesFutureCostWithoutCreatingExpense(ShoppingItemState state)
+    [InlineData(ShoppingItemState.Bought, 10000L)]
+    [InlineData(ShoppingItemState.AtHome, 0L)]
+    public async Task CartKeepsCostWhileAtHomeExcludesCostWithoutCreatingExpense(ShoppingItemState state, long expected)
     {
         var store = Store(); var listId = Id(); var product = Product(); var item = new ShoppingItem(Id(), product.Id, 1, ShoppingPurpose.Necessary);
         var s = await store.SaveListAsync(listId, "Синтетический список", 0);
         s = await store.SaveShoppingItemAsync(listId, item, product, s.Revision);
         s = await store.SaveShoppingItemAsync(listId, item with { State = state }, null, s.Revision);
-        Assert.Equal(0, ShoppingCalculator.Estimate(s.Document, s.Document.Lists[0]).TotalMinor);
+        Assert.Equal(expected, ShoppingCalculator.Estimate(s.Document, s.Document.Lists[0]).TotalMinor);
         Assert.Empty((await store.ReadFinanceAsync()).Operations);
         s = await store.SaveShoppingItemAsync(listId, item, null, s.Revision);
         Assert.Equal(10_000, ShoppingCalculator.Estimate(s.Document, s.Document.Lists[0]).TotalMinor);
@@ -186,7 +186,8 @@ public sealed class ShoppingTests : IDisposable
         Assert.False(vm.HasError); Assert.Contains("Итог неполный", vm.TotalText);
         Assert.Contains("ещё не распределён", vm.ForecastText);
         await vm.ToggleItemCommand.ExecuteAsync(vm.Items[0]);
-        Assert.DoesNotContain("Итог неполный", vm.TotalText);
+        Assert.Contains("Итог неполный", vm.TotalText);
+        Assert.True(vm.Items[0].IsInCart);
         Assert.Empty((await store.ReadFinanceAsync()).Operations);
     }
 
@@ -236,6 +237,141 @@ public sealed class ShoppingTests : IDisposable
         public IReadOnlyList<string?[]> Query(string sql, params string[] args) => inner.Query(sql, args);
         public void Dispose() => inner.Dispose();
     }
+    [Theory]
+    [InlineData("1", "0,1", 3900L, 390L)]
+    [InlineData("0.5", "1", 8000L, 16000L)]
+    [InlineData("0,45", "0.9", 27000L, 54000L)]
+    public void PriceForFractionalBaseScalesToRequestedQuantity(string basis, string quantity, long price, long expected)
+    {
+        var product = Product(price) with { PriceQuantity = ShoppingCalculator.ParseQuantity(basis) };
+        Assert.Equal(expected, ShoppingCalculator.Cost(product, ShoppingCalculator.ParseQuantity(quantity)));
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("100001")]
+    [InlineData("0.0001")]
+    public async Task InvalidPriceBaseIsRejectedAtomically(string value)
+    {
+        var number = decimal.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+        var product = Product() with { PriceQuantity = number };
+        await Assert.ThrowsAsync<FinanceValidationException>(() => Store().SaveProductAsync(product, 0));
+        var snapshot = await Store().ReadShoppingAsync();
+        Assert.Equal(0, snapshot.Revision); Assert.Empty(snapshot.Document.Products);
+        Assert.Throws<FinanceValidationException>(() => ShoppingCalculator.Cost(product, 1));
+    }
+
+    [Fact]
+    public async Task LegacyProductWithoutPriceQuantityLoadsAsOneAndKeepsIdsAndMarkers()
+    {
+        var product = Product(3900); var listId = Id(); var item = new ShoppingItem(Id(), product.Id, .1m, ShoppingPurpose.Necessary, ShoppingItemState.Bought);
+        var s = await Store().SaveListAsync(listId, "Синтетика", 0);
+        s = await Store().SaveShoppingItemAsync(listId, item, product, s.Revision);
+        var legacy = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(s.Document))!;
+        legacy["Products"]![0]!.AsObject().Remove("PriceQuantity");
+        using (var db = new NativeSqliteConnection(PathDb)) db.Execute("UPDATE shopping_state SET payload = ?", legacy.ToJsonString());
+        var reloaded = await Store().ReadShoppingAsync();
+        Assert.Equal(1m, reloaded.Document.Products[0].PriceQuantity);
+        Assert.Equal(product.Id, reloaded.Document.Products[0].Id);
+        Assert.Equal(item, reloaded.Document.Lists[0].Items[0]);
+        Assert.Equal(390, ShoppingCalculator.Estimate(reloaded.Document, reloaded.Document.Lists[0]).TotalMinor);
+    }
+
+    [Fact]
+    public async Task CartTogglePreservesBudgetForecastOrderAndClearsOnSecondTap()
+    {
+        var store = Store(); var product = Product(3900); var list = Id();
+        var first = new ShoppingItem(Id(), product.Id, .1m, ShoppingPurpose.Necessary);
+        var second = first with { Id = Id(), Quantity = .5m, Purpose = ShoppingPurpose.Joy };
+        var s = await store.SaveListAsync(list, "Синтетика", 0);
+        s = await store.SaveShoppingItemAsync(list, first, product, s.Revision);
+        s = await store.SaveShoppingItemAsync(list, second, null, s.Revision);
+        var beforeFinance = JsonSerializer.Serialize(await store.ReadBudgetAsync());
+        var before = ShoppingCalculator.Estimate(s.Document, s.Document.Lists[0]);
+        var beforePreview = ShoppingCalculator.Preview(before, Budget());
+        var vm = new ShoppingListViewModel(store, store, new Navigation()); vm.Configure(list);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        var unchangedRow = vm.Items[1]; var total = vm.TotalText;
+        await vm.ToggleItemCommand.ExecuteAsync(vm.Items[0]);
+        Assert.True(vm.Items[0].IsInCart); Assert.Same(unchangedRow, vm.Items[1]); Assert.Equal(first.Id, vm.Items[0].Item.Id);
+        Assert.Equal(total, vm.TotalText);
+        var after = await store.ReadShoppingAsync();
+        Assert.Equal(before, ShoppingCalculator.Estimate(after.Document, after.Document.Lists[0]));
+        Assert.Equal(beforePreview, ShoppingCalculator.Preview(ShoppingCalculator.Estimate(after.Document, after.Document.Lists[0]), Budget()));
+        await vm.ToggleItemCommand.ExecuteAsync(vm.Items[0]); Assert.False(vm.Items[0].IsInCart);
+        Assert.Equal(beforeFinance, JsonSerializer.Serialize(await store.ReadBudgetAsync()));
+    }
+
+    [Fact]
+    public async Task RemovingItemReducesEstimateButKeepsCatalogAndFinance()
+    {
+        var store = Store(); var product = Product(); var list = Id(); var item = new ShoppingItem(Id(), product.Id, 1, ShoppingPurpose.Joy);
+        var s = await store.SaveListAsync(list, "Синтетика", 0);
+        await store.SaveShoppingItemAsync(list, item, product, s.Revision);
+        var vm = new ShoppingItemEditorViewModel(store, new Navigation()); vm.Configure(list, item.Id); await vm.LoadCommand.ExecuteAsync(null);
+        await vm.DeleteCommand.ExecuteAsync(null);
+        s = await Store().ReadShoppingAsync();
+        Assert.Empty(s.Document.Lists[0].Items); Assert.Single(s.Document.Products);
+        Assert.Equal(0, ShoppingCalculator.Estimate(s.Document, s.Document.Lists[0]).TotalMinor);
+        Assert.Empty((await store.ReadFinanceAsync()).Operations);
+    }
+
+    [Fact]
+    public async Task ChangingPriceBaseRefreshesPriceDateAndLivePreviewWithoutLosingItemDraft()
+    {
+        var store = Store(); var product = Product(27000) with { Unit = ProductUnit.Kilogram, PriceQuantity = .45m };
+        var list = Id(); var item = new ShoppingItem(Id(), product.Id, .45m, ShoppingPurpose.Necessary);
+        var s = await store.SaveListAsync(list, "Синтетика", 0);
+        s = await store.SaveShoppingItemAsync(list, item, product, s.Revision);
+        var oldDate = DateOnly.FromDateTime(DateTime.Today).AddDays(-20);
+        var oldDoc = s.Document with { Products = [s.Document.Products[0] with { PriceDate = oldDate }] };
+        using (var db = new NativeSqliteConnection(PathDb)) db.Execute("UPDATE shopping_state SET payload = ?", JsonSerializer.Serialize(oldDoc));
+        var nav = new Navigation(); var vm = new ShoppingItemEditorViewModel(store, nav);
+        vm.Configure(list, item.Id); await vm.LoadCommand.ExecuteAsync(null);
+        vm.Quantity = "0,9"; vm.PurposeIndex = 1; vm.StateIndex = 1;
+        Assert.Contains(Money.Format(54000), vm.PreviewText);
+        await vm.EditPriceCommand.ExecuteAsync(null); Assert.Equal(product.Id, nav.EditedProduct);
+        s = await store.SaveProductAsync(product with { PriceQuantity = .9m }, s.Revision);
+        Assert.Equal(DateOnly.FromDateTime(DateTime.Today), s.Document.Products[0].PriceDate);
+        await vm.LoadCommand.ExecuteAsync(null);
+        Assert.Equal("0,9", vm.Quantity); Assert.Equal(1, vm.PurposeIndex); Assert.Equal(1, vm.StateIndex);
+        Assert.Contains(Money.Format(27000), vm.PreviewText);
+        await vm.SaveCommand.ExecuteAsync(null); Assert.False(vm.HasError);
+        var updated = (await store.ReadShoppingAsync()).Document.Lists[0].Items[0];
+        Assert.Equal(.9m, updated.Quantity); Assert.Equal(ShoppingPurpose.Joy, updated.Purpose); Assert.Equal(ShoppingItemState.Bought, updated.State);
+    }
+
+    [Fact]
+    public async Task ReloadAfterPriceEditorDoesNotOverwriteConcurrentItemChanges()
+    {
+        var store = Store(); var product = Product(); var list = Id(); var item = new ShoppingItem(Id(), product.Id, 1, ShoppingPurpose.Necessary);
+        var s = await store.SaveListAsync(list, "Синтетика", 0);
+        s = await store.SaveShoppingItemAsync(list, item, product, s.Revision);
+        var vm = new ShoppingItemEditorViewModel(store, new Navigation()); vm.Configure(list, item.Id); await vm.LoadCommand.ExecuteAsync(null);
+        vm.Quantity = "3";
+        await store.SaveShoppingItemAsync(list, item with { Quantity = 2 }, null, s.Revision);
+        await vm.LoadCommand.ExecuteAsync(null);
+        Assert.True(vm.HasError); Assert.Equal("3", vm.Quantity);
+        await vm.SaveCommand.ExecuteAsync(null); Assert.True(vm.HasError);
+        Assert.Equal(2, (await store.ReadShoppingAsync()).Document.Lists[0].Items[0].Quantity);
+    }
+
+    [Fact]
+    public async Task NewInlineProductStoresPriceBaseAndPreviewRecalculatesOnTyping()
+    {
+        var store = Store(); var list = Id(); await store.SaveListAsync(list, "Синтетика", 0);
+        var vm = new ShoppingItemEditorViewModel(store, new Navigation()); vm.Configure(list, null); await vm.LoadCommand.ExecuteAsync(null);
+        vm.Name = "Тестовое филе"; vm.UnitIndex = 1; vm.PriceQuantity = "0.45"; vm.Price = "270"; vm.Quantity = "0,9";
+        Assert.Contains(Money.Format(54000), vm.PreviewText);
+        vm.Quantity = "0,45"; Assert.Contains(Money.Format(27000), vm.PreviewText);
+        await vm.SaveCommand.ExecuteAsync(null); Assert.False(vm.HasError);
+        var s = await store.ReadShoppingAsync(); Assert.Equal(.45m, s.Document.Products[0].PriceQuantity);
+        Assert.Equal(27000, ShoppingCalculator.Estimate(s.Document, s.Document.Lists[0]).TotalMinor);
+        var editor = new ProductEditorViewModel(store, new Navigation()); editor.Configure(s.Document.Products[0].Id); await editor.LoadCommand.ExecuteAsync(null);
+        Assert.Equal("0,45", editor.PriceQuantity); Assert.Contains("0,45 кг", editor.PriceBasisPreview);
+    }
+
     private sealed class Navigation : IShoppingNavigation
     {
         public int Backs { get; private set; }
@@ -243,7 +379,8 @@ public sealed class ShoppingTests : IDisposable
         public Task<string?> AskListNameAsync(string? current) => Task.FromResult<string?>(null);
         public Task<bool> ConfirmAsync(string title, string message) => Task.FromResult(true);
         public Task OpenListAsync(string id) => Task.CompletedTask;
-        public Task EditProductAsync(string? id) => Task.CompletedTask;
+        public string? EditedProduct { get; private set; }
+        public Task EditProductAsync(string? id) { EditedProduct = id; return Task.CompletedTask; }
         public Task EditItemAsync(string listId, string? itemId) => Task.CompletedTask;
     }
 }

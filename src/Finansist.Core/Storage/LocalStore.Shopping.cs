@@ -28,7 +28,7 @@ public sealed partial class LocalStore
     private static Product PrepareProduct(Product product, Product? old) => product with
     {
         Name = product.Name.Trim(),
-        PriceDate = product.PriceMinor is null ? null : old is not null && old.PriceMinor == product.PriceMinor ? old.PriceDate : DateOnly.FromDateTime(DateTime.Today)
+        PriceDate = product.PriceMinor is null ? null : old is not null && old.PriceMinor == product.PriceMinor && old.PriceQuantity == product.PriceQuantity && old.Unit == product.Unit ? old.PriceDate : DateOnly.FromDateTime(DateTime.Today)
     };
     public Task<ShoppingSnapshot> SaveProductAsync(Product product, long revision) => RunAsync(db => ChangeShopping(db, revision, doc =>
     {
@@ -57,7 +57,8 @@ public sealed partial class LocalStore
             BudgetCalculator.Require(newProduct.Id == item.ProductId && !doc.Products.Any(p => p.Id == newProduct.Id), "Новый товар уже изменился. Откройте форму заново.");
             doc = doc with { Products = [..doc.Products, PrepareProduct(newProduct, null)] };
         }
-        var updated = list with { Items = [..list.Items.Where(i => i.Id != item.Id), item] };
+        var updated = list with { Items = list.Items.Any(i => i.Id == item.Id)
+            ? list.Items.Select(i => i.Id == item.Id ? item : i).ToList() : [..list.Items, item] };
         return doc with { Lists = doc.Lists.Select(l => l.Id == listId ? updated : l).ToList() };
     }));
     public Task<ShoppingSnapshot> DeleteShoppingItemAsync(string listId, string itemId, long revision) => RunAsync(db => ChangeShopping(db, revision, doc =>

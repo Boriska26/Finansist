@@ -11,11 +11,17 @@
    <Label Text="Товар" /><Picker ItemsSource="{Binding Products}" ItemDisplayBinding="{Binding Name, x:DataType=vm:ProductChoice}" SelectedItem="{Binding SelectedProduct}" IsEnabled="{Binding CanChooseProduct}" />
    <VerticalStackLayout IsVisible="{Binding IsNewProduct}" Spacing="12">
     <Label Text="Название нового товара" /><Entry Text="{Binding Name}" MaxLength="80" Placeholder="Например, помидоры" />
-    <Label Text="Единица цены и количества" /><Picker ItemsSource="{Binding Units}" SelectedIndex="{Binding UnitIndex}" />
-    <Label Text="Примерная цена за единицу, ₽" /><Entry Text="{Binding Price}" Keyboard="Numeric" Placeholder="Можно оставить пустым" />
-    <Label Text="Новый товар сохранится и в каталоге. Для упаковки укажите объём в названии, а единицу — «Штуки / упаковки»." Style="{StaticResource Muted}" />
+    <Label Text="Единица" /><Picker ItemsSource="{Binding Units}" SelectedIndex="{Binding UnitIndex}" />
+    <Label Text="Количество для цены" /><Entry Text="{Binding PriceQuantity}" Keyboard="Numeric" Placeholder="Например, 0,45" />
+    <Label Text="Цена за это количество, ₽" /><Entry Text="{Binding Price}" Keyboard="Numeric" Placeholder="Можно оставить пустым" />
+    <Label Text="Новый товар сохранится и в каталоге. Например: единица кг, количество для цены 0,45, цена 270 ₽." Style="{StaticResource Muted}" />
    </VerticalStackLayout>
-   <Label Text="Количество" /><Entry Text="{Binding Quantity}" Keyboard="Numeric" Placeholder="Например, 1 или 0,5" />
+   <VerticalStackLayout IsVisible="{Binding CanEditPrice}" Spacing="8">
+    <Label Text="{Binding ProductPriceText}" Style="{StaticResource Muted}" />
+    <Button Text="Изменить цену в каталоге" Command="{Binding EditPriceCommand}" Style="{StaticResource Secondary}" />
+   </VerticalStackLayout>
+   <Label Text="{Binding QuantityLabel}" /><Entry Text="{Binding Quantity}" Keyboard="Numeric" Placeholder="Например, 1 или 0,5" />
+   <Label Text="{Binding PreviewText}" FontSize="20" FontAttributes="Bold" />
    <Label Text="Назначение в этом списке" /><Picker ItemsSource="{Binding Purposes}" SelectedIndex="{Binding PurposeIndex}" />
    <Label Text="У существующего товара обычное назначение в каталоге сохранится. Для нового товара это станет обычным назначением." Style="{StaticResource Muted}" />
    <Label Text="Состояние" /><Picker ItemsSource="{Binding States}" SelectedIndex="{Binding StateIndex}" />

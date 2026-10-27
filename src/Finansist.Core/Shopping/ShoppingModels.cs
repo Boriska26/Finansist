@@ -7,7 +7,7 @@ namespace Finansist.Core.Shopping;
 public enum ProductUnit { Piece, Kilogram, Litre }
 public enum ShoppingPurpose { Necessary, Joy }
 public enum ShoppingItemState { Needed, Bought, AtHome }
-public sealed record Product(string Id, string Name, ProductUnit Unit, long? PriceMinor, DateOnly? PriceDate, ShoppingPurpose Purpose = ShoppingPurpose.Necessary);
+public sealed record Product(string Id, string Name, ProductUnit Unit, long? PriceMinor, DateOnly? PriceDate, ShoppingPurpose Purpose = ShoppingPurpose.Necessary, decimal PriceQuantity = 1m);
 public sealed record ShoppingItem(string Id, string ProductId, decimal Quantity, ShoppingPurpose Purpose, ShoppingItemState State = ShoppingItemState.Needed);
 public sealed record ShoppingList(string Id, string Name, List<ShoppingItem> Items);
 public sealed record ShoppingDocument
@@ -53,13 +53,22 @@ public static class ShoppingCalculator
         if (price < 0) throw new FinanceValidationException("Цена не может быть отрицательной.");
         return price;
     }
-    public static long? Cost(Product product, decimal quantity) => product.PriceMinor is { } price
-        ? checked((long)decimal.Round(price * quantity, 0, MidpointRounding.AwayFromZero)) : null;
+    public static string QuantityText(decimal quantity) => quantity.ToString("0.###", CultureInfo.GetCultureInfo("ru-RU"));
+    public static string PriceBasis(Product product) => product.PriceMinor is { } price
+        ? $"{Money.Format(price)} за {QuantityText(product.PriceQuantity)} {UnitText(product.Unit)}" : "Цена неизвестна";
+    public static bool ValidQuantity(decimal quantity) => quantity > 0 && quantity <= 100_000 && decimal.Round(quantity, 3) == quantity;
+    public static long? Cost(Product product, decimal quantity)
+    {
+        BudgetCalculator.Require(ValidQuantity(product.PriceQuantity), "Проверьте количество, за которое указана цена.");
+        BudgetCalculator.Require(ValidQuantity(quantity), "Проверьте количество покупки.");
+        return product.PriceMinor is { } price
+            ? checked((long)decimal.Round(price * quantity / product.PriceQuantity, 0, MidpointRounding.AwayFromZero)) : null;
+    }
     public static ShoppingEstimate Estimate(ShoppingDocument document, ShoppingList list)
     {
         var products = document.Products.ToDictionary(p => p.Id);
         long necessary = 0, joy = 0; int unknownNecessary = 0, unknownJoy = 0;
-        foreach (var item in list.Items.Where(i => i.State == ShoppingItemState.Needed))
+        foreach (var item in list.Items.Where(i => i.State != ShoppingItemState.AtHome))
         {
             var cost = Cost(products[item.ProductId], item.Quantity);
             if (item.Purpose == ShoppingPurpose.Necessary)
@@ -90,6 +99,7 @@ public static class ShoppingCalculator
         {
             Id(p.Id);
             Require(p.Name.Trim().Length is >= 1 and <= 80, "Название товара — от 1 до 80 символов.");
+            Require(ValidQuantity(p.PriceQuantity), "Количество для цены — больше нуля, до 100 000, не более трёх знаков после запятой.");
             Require(Enum.IsDefined(p.Unit) && Enum.IsDefined(p.Purpose), "Выберите единицу и назначение товара.");
             Require(p.PriceMinor is null || p.PriceMinor >= 0 && p.PriceMinor <= Money.MaximumMinor, "Цена — от нуля до 1 трлн ₽ или пустое поле.");
             Require(p.PriceMinor.HasValue == p.PriceDate.HasValue && (p.PriceDate is null || p.PriceDate <= DateOnly.FromDateTime(DateTime.Today)), "Проверьте дату известной цены.");
@@ -103,7 +113,7 @@ public static class ShoppingCalculator
             {
                 Id(item.Id);
                 Require(doc.Products.Any(p => p.Id == item.ProductId), "Товар больше не найден. Обновите список.");
-                Require(item.Quantity > 0 && item.Quantity <= 100_000 && decimal.Round(item.Quantity, 3) == item.Quantity, "Проверьте количество товара.");
+                Require(ValidQuantity(item.Quantity), "Проверьте количество товара.");
                 Require(Enum.IsDefined(item.Purpose) && Enum.IsDefined(item.State), "Выберите назначение и состояние покупки.");
             }
             _ = Estimate(doc, list);

@@ -20,17 +20,19 @@ public interface IShoppingNavigation
 public sealed record ProductRow(Product Product)
 {
     public string Name => Product.Name;
-    public string Details => $"{ShoppingCalculator.PurposeText(Product.Purpose)} · {ShoppingCalculator.UnitText(Product.Unit)}\n" +
-        (Product.PriceMinor is { } price ? $"{Money.Format(price)} / {ShoppingCalculator.UnitText(Product.Unit)} · обновлена {Product.PriceDate:dd.MM.yyyy}" : "Цена неизвестна");
+    public string Details => $"{ShoppingCalculator.PurposeText(Product.Purpose)} · {ShoppingCalculator.PriceBasis(Product)}" +
+        (Product.PriceDate is { } date ? $"\nОбновлена {date:dd.MM.yyyy}" : "");
 }
 public sealed record ShoppingListRow(string Id, string Name, string Details);
 public sealed record ShoppingItemRow(ShoppingItem Item, Product Product)
 {
     public string Name => Product.Name;
-    public string Details => $"{Item.Quantity.ToString("0.###", CultureInfo.GetCultureInfo("ru-RU"))} {ShoppingCalculator.UnitText(Product.Unit)} · {ShoppingCalculator.PurposeText(Item.Purpose)}\n" +
-        (ShoppingCalculator.Cost(Product, Item.Quantity) is { } cost ? $"≈ {Money.Format(cost)} · обновлена {Product.PriceDate:dd.MM.yyyy}" : "Цена неизвестна");
-    public string Status => Item.State switch { ShoppingItemState.Bought => "Куплено", ShoppingItemState.AtHome => "Есть дома", _ => "Нужно купить" };
-    public string ToggleText => Item.State == ShoppingItemState.Needed ? "Куплено" : "Вернуть в покупки";
+    public string Details => $"{ShoppingCalculator.QuantityText(Item.Quantity)} {ShoppingCalculator.UnitText(Product.Unit)} · {ShoppingCalculator.PurposeText(Item.Purpose)}" +
+        (Item.State == ShoppingItemState.AtHome ? " · Есть дома" : "");
+    public string CostText => ShoppingCalculator.Cost(Product, Item.Quantity) is { } cost ? $"≈ {Money.Format(cost)}" : "Без цены";
+    public bool IsInCart => Item.State == ShoppingItemState.Bought;
+    public bool CanToggleCart => Item.State != ShoppingItemState.AtHome;
+    public string CartHint => !CanToggleCart ? "Есть дома. Нажмите на строку, чтобы изменить состояние." : IsInCart ? "Убрать отметку «В корзине»" : "Отметить «В корзине»";
 }
 public partial class ShoppingViewModel(IShoppingStore store, IShoppingNavigation navigation) : FinanceScreenViewModel
 {
@@ -54,7 +56,7 @@ public partial class ShoppingViewModel(IShoppingStore store, IShoppingNavigation
         foreach (var list in snapshot.Document.Lists.OrderBy(l => l.Name, StringComparer.CurrentCultureIgnoreCase))
         {
             var estimate = ShoppingCalculator.Estimate(snapshot.Document, list);
-            Lists.Add(new(list.Id, list.Name, $"Позиций: {list.Items.Count} · осталось купить ≈ {Money.Format(estimate.TotalMinor)}" +
+            Lists.Add(new(list.Id, list.Name, $"Позиций: {list.Items.Count} · стоимость ≈ {Money.Format(estimate.TotalMinor)}" +
                 (estimate.UnknownCount > 0 ? $"\nБез цены: {estimate.UnknownCount}" : "")));
         }
         NoLists = Lists.Count == 0; FilterProducts();
@@ -92,12 +94,23 @@ public partial class ShoppingListViewModel(IShoppingStore store, IBudgetStore bu
     {
         snapshot = await store.ReadShoppingAsync();
         var list = snapshot.Document.Lists.SingleOrDefault(l => l.Id == listId) ?? throw new FinanceValidationException("Список удалён. Вернитесь к покупкам.");
-        Name = list.Name; Items.Clear();
+        Name = list.Name;
         var products = snapshot.Document.Products.ToDictionary(p => p.Id);
-        foreach (var item in list.Items.OrderBy(i => i.State)) Items.Add(new(item, products[item.ProductId]));
+        var rows = list.Items.Select(item => new ShoppingItemRow(item, products[item.ProductId])).ToArray();
+        for (var i = 0; i < rows.Length; i++)
+        {
+            var oldIndex = Items.ToList().FindIndex(row => row.Item.Id == rows[i].Item.Id);
+            if (oldIndex < 0) Items.Insert(i, rows[i]);
+            else
+            {
+                if (oldIndex != i) Items.Move(oldIndex, i);
+                if (Items[i] != rows[i]) Items[i] = rows[i];
+            }
+        }
+        while (Items.Count > rows.Length) Items.RemoveAt(Items.Count - 1);
         IsEmpty = Items.Count == 0;
         var estimate = ShoppingCalculator.Estimate(snapshot.Document, list);
-        TotalText = $"Осталось купить ≈ {Money.Format(estimate.TotalMinor)}" + (estimate.UnknownCount > 0 ? $"\nЕщё без цены: {estimate.UnknownCount}. Итог неполный." : "");
+        TotalText = $"Стоимость списка ≈ {Money.Format(estimate.TotalMinor)}" + (estimate.UnknownCount > 0 ? $"\nЕщё без цены: {estimate.UnknownCount}. Итог неполный." : "");
         NecessaryText = $"Необходимое: ≈ {Money.Format(estimate.NecessaryMinor)}" + (estimate.UnknownNecessary > 0 ? $" + {estimate.UnknownNecessary} без цены" : "");
         JoyText = $"Для себя: ≈ {Money.Format(estimate.JoyMinor)}" + (estimate.UnknownJoy > 0 ? $" + {estimate.UnknownJoy} без цены" : "");
         var preview = ShoppingCalculator.Preview(estimate, await budget.ReadBudgetAsync());
@@ -110,10 +123,10 @@ public partial class ShoppingListViewModel(IShoppingStore store, IBudgetStore bu
     }
     [RelayCommand] private Task AddItemAsync() => RunAsync(() => navigation.EditItemAsync(listId, null));
     [RelayCommand] private Task EditItemAsync(ShoppingItemRow row) => RunAsync(() => navigation.EditItemAsync(listId, row.Item.Id));
-    [RelayCommand] private Task EditPriceAsync(ShoppingItemRow row) => RunAsync(() => navigation.EditProductAsync(row.Product.Id));
     [RelayCommand] private Task ToggleItemAsync(ShoppingItemRow row) => RunAsync(async () =>
     {
-        await store.SaveShoppingItemAsync(listId, row.Item with { State = row.Item.State == ShoppingItemState.Needed ? ShoppingItemState.Bought : ShoppingItemState.Needed }, null, snapshot.Revision);
+        if (!row.CanToggleCart) return;
+        await store.SaveShoppingItemAsync(listId, row.Item with { State = row.IsInCart ? ShoppingItemState.Needed : ShoppingItemState.Bought }, null, snapshot.Revision);
         await LoadAsync();
     });
     [RelayCommand] private Task RenameAsync() => RunAsync(async () =>
@@ -133,14 +146,26 @@ public partial class ProductEditorViewModel(IShoppingStore store, IShoppingNavig
     private string id = Guid.NewGuid().ToString();
     private long revision;
     private bool loaded;
-    public IReadOnlyList<string> Units { get; } = ["Штуки / упаковки", "Килограммы", "Литры"];
+    public IReadOnlyList<string> Units { get; } = ["шт.", "кг", "л"];
     public IReadOnlyList<string> Purposes { get; } = ["Необходимое", "Для себя"];
     [ObservableProperty] private string name = "";
     [ObservableProperty] private string price = "";
+    [ObservableProperty] private string priceQuantity = "1";
+    public string PriceBasisPreview
+    {
+        get
+        {
+            try { return ShoppingCalculator.PriceBasis(new("", Name, (ProductUnit)UnitIndex, ShoppingCalculator.ParsePrice(Price), null, PriceQuantity: ShoppingCalculator.ParseQuantity(PriceQuantity))); }
+            catch (FinanceValidationException e) { return e.Message; }
+        }
+    }
+    partial void OnPriceChanged(string value) => OnPropertyChanged(nameof(PriceBasisPreview));
+    partial void OnPriceQuantityChanged(string value) => OnPropertyChanged(nameof(PriceBasisPreview));
+    partial void OnUnitIndexChanged(int value) => OnPropertyChanged(nameof(PriceBasisPreview));
     [ObservableProperty] private int unitIndex;
     [ObservableProperty] private int purposeIndex;
     [ObservableProperty] private bool canDelete;
-    [ObservableProperty] private string priceHint = "Цена пока неизвестна. Поле можно оставить пустым.";
+    [ObservableProperty] private string priceHint = "Цена приблизительная. Поле можно оставить пустым.";
     public void Configure(string? productId) { id = productId ?? Guid.NewGuid().ToString(); CanDelete = productId is not null; loaded = false; }
     [RelayCommand] private Task LoadAsync() => RunAsync(async () =>
     {
@@ -150,15 +175,16 @@ public partial class ProductEditorViewModel(IShoppingStore store, IShoppingNavig
         {
             var product = snapshot.Document.Products.SingleOrDefault(p => p.Id == id) ?? throw new FinanceValidationException("Товар уже удалён.");
             Name = product.Name; Price = product.PriceMinor is { } value ? Money.Input(value) : "";
+            PriceQuantity = ShoppingCalculator.QuantityText(product.PriceQuantity);
             UnitIndex = (int)product.Unit; PurposeIndex = (int)product.Purpose;
-            if (product.PriceDate is { } date) PriceHint = $"Цена обновлена {date:dd.MM.yyyy}. Изменение цены обновит дату во всех списках.";
+            if (product.PriceDate is { } date) PriceHint = $"Цена обновлена {date:dd.MM.yyyy}. Изменение цены или количества для неё обновит дату во всех списках.";
         }
         loaded = true;
     });
     [RelayCommand] private Task SaveAsync() => RunAsync(async () =>
     {
         if (!loaded) throw new FinanceValidationException("Сначала загрузите форму.");
-        await store.SaveProductAsync(new(id, Name, (ProductUnit)UnitIndex, ShoppingCalculator.ParsePrice(Price), null, (ShoppingPurpose)PurposeIndex), revision);
+        await store.SaveProductAsync(new(id, Name, (ProductUnit)UnitIndex, ShoppingCalculator.ParsePrice(Price), null, (ShoppingPurpose)PurposeIndex, ShoppingCalculator.ParseQuantity(PriceQuantity)), revision);
         await navigation.BackAsync();
     });
     [RelayCommand] private Task DeleteAsync() => RunAsync(async () =>
@@ -174,13 +200,15 @@ public partial class ShoppingItemEditorViewModel(IShoppingStore store, IShopping
     private string listId = "", id = "", newProductId = "";
     private long revision;
     private bool loaded;
+    private ShoppingItem? originalItem;
     public ObservableCollection<ProductChoice> Products { get; } = [];
-    public IReadOnlyList<string> Units { get; } = ["Штуки / упаковки", "Килограммы", "Литры"];
+    public IReadOnlyList<string> Units { get; } = ["шт.", "кг", "л"];
     public IReadOnlyList<string> Purposes { get; } = ["Необходимое", "Для себя"];
-    public IReadOnlyList<string> States { get; } = ["Нужно купить", "Куплено", "Есть дома"];
+    public IReadOnlyList<string> States { get; } = ["Нужно взять", "В корзине", "Есть дома"];
     [ObservableProperty] private ProductChoice? selectedProduct;
     [ObservableProperty] private string name = "";
     [ObservableProperty] private string price = "";
+    [ObservableProperty] private string priceQuantity = "1";
     [ObservableProperty] private string quantity = "1";
     [ObservableProperty] private int unitIndex;
     [ObservableProperty] private int purposeIndex;
@@ -188,11 +216,38 @@ public partial class ShoppingItemEditorViewModel(IShoppingStore store, IShopping
     [ObservableProperty] private bool isEditing;
     public bool CanChooseProduct => !IsEditing;
     public bool IsNewProduct => SelectedProduct?.Product is null;
+    public bool CanEditPrice => !IsNewProduct;
+    public string QuantityLabel => $"Количество ({ShoppingCalculator.UnitText(SelectedProduct?.Product?.Unit ?? (ProductUnit)UnitIndex)})";
+    public string ProductPriceText => SelectedProduct?.Product is { } p ? ShoppingCalculator.PriceBasis(p) + (p.PriceDate is { } date ? $" · обновлена {date:dd.MM.yyyy}" : "") : "";
+    public string PreviewText
+    {
+        get
+        {
+            try
+            {
+                var product = SelectedProduct?.Product ?? new Product(newProductId, Name, (ProductUnit)UnitIndex,
+                    ShoppingCalculator.ParsePrice(Price), null, PriceQuantity: ShoppingCalculator.ParseQuantity(PriceQuantity));
+                var cost = ShoppingCalculator.Cost(product, ShoppingCalculator.ParseQuantity(Quantity));
+                return cost is { } value ? $"Примерная стоимость: {Money.Format(value)}" : "Цена неизвестна — стоимость пока не посчитана.";
+            }
+            catch (FinanceValidationException e) { return e.Message; }
+            catch (OverflowException) { return "Сумма слишком велика. Проверьте цену и количество."; }
+        }
+    }
+    private void NotifyPreview()
+    {
+        OnPropertyChanged(nameof(PreviewText)); OnPropertyChanged(nameof(QuantityLabel)); OnPropertyChanged(nameof(ProductPriceText));
+    }
+    partial void OnPriceChanged(string value) => NotifyPreview();
+    partial void OnPriceQuantityChanged(string value) => NotifyPreview();
+    partial void OnQuantityChanged(string value) => NotifyPreview();
+    partial void OnUnitIndexChanged(int value) => NotifyPreview();
     partial void OnIsEditingChanged(bool value) => OnPropertyChanged(nameof(CanChooseProduct));
     partial void OnSelectedProductChanged(ProductChoice? value)
     {
         PurposeIndex = (int)(value?.Product?.Purpose ?? ShoppingPurpose.Necessary);
-        OnPropertyChanged(nameof(IsNewProduct));
+        if (!IsEditing) Quantity = ShoppingCalculator.QuantityText(value?.Product?.PriceQuantity ?? 1m);
+        OnPropertyChanged(nameof(IsNewProduct)); OnPropertyChanged(nameof(CanEditPrice)); NotifyPreview();
     }
     public void Configure(string list, string? itemId)
     {
@@ -200,30 +255,37 @@ public partial class ShoppingItemEditorViewModel(IShoppingStore store, IShopping
     }
     [RelayCommand] private Task LoadAsync() => RunAsync(async () =>
     {
-        if (loaded) return;
-        var snapshot = await store.ReadShoppingAsync(); revision = snapshot.Revision;
+        var snapshot = await store.ReadShoppingAsync();
         var list = snapshot.Document.Lists.SingleOrDefault(l => l.Id == listId) ?? throw new FinanceValidationException("Список уже удалён.");
+        var item = IsEditing ? list.Items.SingleOrDefault(i => i.Id == id) ?? throw new FinanceValidationException("Позиция уже удалена.") : null;
+        if (loaded && item != originalItem) throw new FinanceValidationException("Позиция изменилась. Откройте форму заново. Введённые значения пока сохранены на экране.");
+        var selectedId = loaded ? SelectedProduct?.Product?.Id : item?.ProductId;
+        if (selectedId is not null && !snapshot.Document.Products.Any(p => p.Id == selectedId))
+            throw new FinanceValidationException("Товар уже удалён. Вернитесь к списку и выберите другой.");
+        var savedPurpose = PurposeIndex; var savedQuantity = Quantity; var savedState = StateIndex;
         Products.Clear(); Products.Add(new(null, "+ Новый товар"));
         foreach (var product in snapshot.Document.Products.OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase)) Products.Add(new(product, product.Name));
-        if (IsEditing)
-        {
-            var item = list.Items.SingleOrDefault(i => i.Id == id) ?? throw new FinanceValidationException("Позиция уже удалена.");
-            SelectedProduct = Products.Single(p => p.Product?.Id == item.ProductId);
-            Quantity = item.Quantity.ToString("0.###", CultureInfo.GetCultureInfo("ru-RU")); PurposeIndex = (int)item.Purpose; StateIndex = (int)item.State;
-        }
-        else SelectedProduct = Products[0];
-        loaded = true;
+        SelectedProduct = selectedId is null ? Products[0] : Products.Single(p => p.Product?.Id == selectedId);
+        if (loaded) { PurposeIndex = savedPurpose; Quantity = savedQuantity; StateIndex = savedState; }
+        else if (item is not null) { Quantity = ShoppingCalculator.QuantityText(item.Quantity); PurposeIndex = (int)item.Purpose; StateIndex = (int)item.State; }
+        originalItem = item; revision = snapshot.Revision; loaded = true; NotifyPreview();
+    });
+    [RelayCommand] private Task EditPriceAsync() => RunAsync(async () =>
+    {
+        if (!loaded || SelectedProduct?.Product is not { } product) return;
+        await navigation.EditProductAsync(product.Id);
     });
     [RelayCommand] private Task SaveAsync() => RunAsync(async () =>
     {
         if (!loaded || SelectedProduct is null) throw new FinanceValidationException("Выберите товар.");
-        var product = IsNewProduct ? new Product(newProductId, Name, (ProductUnit)UnitIndex, ShoppingCalculator.ParsePrice(Price), null, (ShoppingPurpose)PurposeIndex) : null;
+        var product = IsNewProduct ? new Product(newProductId, Name, (ProductUnit)UnitIndex, ShoppingCalculator.ParsePrice(Price), null,
+            (ShoppingPurpose)PurposeIndex, ShoppingCalculator.ParseQuantity(PriceQuantity)) : null;
         var item = new ShoppingItem(id, product?.Id ?? SelectedProduct.Product!.Id, ShoppingCalculator.ParseQuantity(Quantity), (ShoppingPurpose)PurposeIndex, (ShoppingItemState)StateIndex);
         await store.SaveShoppingItemAsync(listId, item, product, revision); await navigation.BackAsync();
     });
     [RelayCommand] private Task DeleteAsync() => RunAsync(async () =>
     {
-        if (!loaded || !IsEditing || !await navigation.ConfirmAsync("Удалить позицию?", "Товар останется в каталоге.")) return;
+        if (!loaded || !IsEditing || !await navigation.ConfirmAsync("Удалить из списка?", "Позиция исчезнет из списка и расчёта стоимости. Товар останется в каталоге.")) return;
         await store.DeleteShoppingItemAsync(listId, id, revision); await navigation.BackAsync();
     });
 }

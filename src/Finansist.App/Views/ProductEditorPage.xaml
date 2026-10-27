@@ -9,8 +9,10 @@
   <Button Text="Повторить загрузку" Command="{Binding LoadCommand}" IsVisible="{Binding HasError}" Style="{StaticResource Secondary}" />
   <VerticalStackLayout IsEnabled="{Binding IsIdle}" Spacing="12">
    <Label Text="Название" /><Entry Text="{Binding Name}" MaxLength="80" Placeholder="Например, молоко 0,9 л" />
-   <Label Text="Единица цены и количества" /><Picker ItemsSource="{Binding Units}" SelectedIndex="{Binding UnitIndex}" />
-   <Label Text="Последняя известная цена за единицу, ₽" /><Entry Text="{Binding Price}" Keyboard="Numeric" Placeholder="Можно оставить пустым" />
+   <Label Text="Единица" /><Picker ItemsSource="{Binding Units}" SelectedIndex="{Binding UnitIndex}" />
+   <Label Text="Количество, за которое указана цена" /><Entry Text="{Binding PriceQuantity}" Keyboard="Numeric" Placeholder="Например, 1 или 0,45" />
+   <Label Text="Цена за указанное количество, ₽" /><Entry Text="{Binding Price}" Keyboard="Numeric" Placeholder="Можно оставить пустым" />
+   <Label Text="{Binding PriceBasisPreview}" FontAttributes="Bold" />
    <Label Text="{Binding PriceHint}" Style="{StaticResource Muted}" />
    <Label Text="Обычное назначение" /><Picker ItemsSource="{Binding Purposes}" SelectedIndex="{Binding PurposeIndex}" />
    <Label Text="Для конкретного списка назначение можно поменять отдельно. Цены общие для всех списков, без привязки к магазину." Style="{StaticResource Muted}" />
