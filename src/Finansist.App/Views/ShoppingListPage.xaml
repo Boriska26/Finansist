@@ -38,6 +38,7 @@
     </Grid>
    </DataTemplate></CollectionView.ItemTemplate>
    <CollectionView.Footer><VerticalStackLayout Padding="20,10" Spacing="10">
+    <views:CookingRecipeView BindingContext="{Binding Recipe}" IsEnabled="{Binding IsIdle}" />
     <Label Text="Корзина — отметка, что товар уже взят: сумма списка не меняется. Для изменения или удаления нажмите на строку. Позиции «Есть дома» не включены в прогноз." Style="{StaticResource Muted}" />
     <Button Text="Переименовать список" Command="{Binding RenameCommand}" Style="{StaticResource Secondary}" />
     <Button Text="Удалить список" Command="{Binding DeleteCommand}" Style="{StaticResource Secondary}" />

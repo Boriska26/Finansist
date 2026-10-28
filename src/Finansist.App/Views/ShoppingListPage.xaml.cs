@@ -8,5 +8,6 @@ public partial class ShoppingListPage : ContentPage
     {
         ViewModel = viewModel; InitializeComponent(); BindingContext = viewModel;
     }
+    protected override void OnDisappearing() { ViewModel.CancelWork(); base.OnDisappearing(); }
     protected override async void OnAppearing() { base.OnAppearing(); await ViewModel.RefreshCommand.ExecuteAsync(null); }
 }

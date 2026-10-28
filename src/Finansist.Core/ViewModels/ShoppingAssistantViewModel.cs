@@ -23,6 +23,7 @@ public partial class AssistantIngredientRow : ObservableObject
     private IReadOnlyList<Product> catalog = [];
     private Product? product;
     private bool initializing = true;
+    private bool unitUnknown;
     public string Id { get; } = Guid.NewGuid().ToString();
     public ObservableCollection<ProductChoice> Candidates { get; } = [];
     public IReadOnlyList<string> Units { get; } = ["шт.", "кг", "л"];
@@ -41,6 +42,8 @@ public partial class AssistantIngredientRow : ObservableObject
     }
     [ObservableProperty] private int purposeIndex;
     [ObservableProperty] private ProductChoice? selectedCandidate;
+    [ObservableProperty] private bool isAtHome;
+    partial void OnIsAtHomeChanged(bool value) => OnPropertyChanged(nameof(CostText));
     [ObservableProperty] private string notice = "";
     public Product? Product => product;
     public bool HasProduct => product is not null;
@@ -51,10 +54,15 @@ public partial class AssistantIngredientRow : ObservableObject
     {
         get
         {
+            if (IsAtHome) return "Есть дома — не включено в стоимость.";
             try { return product is null ? "Без цены" : ShoppingCalculator.Cost(product, ShoppingCalculator.ParseQuantity(Quantity)) is { } amount ? $"≈ {Money.Format(amount)}" : "Цена неизвестна"; }
             catch (FinanceValidationException e) { return e.Message; }
             catch (OverflowException) { return "Проверьте количество и цену."; }
         }
+    }
+    public AssistantIngredientRow(string ingredient)
+    {
+        Name = ingredient; Quantity = ""; unitUnknown = true; initializing = false;
     }
     public AssistantIngredientRow(SuggestedIngredient suggestion)
     {
@@ -68,6 +76,7 @@ public partial class AssistantIngredientRow : ObservableObject
     partial void OnNameChanged(string value) { if (product is not null && product.Name != value) product = null; FindCandidates(); NotifyState(); }
     private void UnitChanged(int value)
     {
+        if (!initializing) unitUnknown = false;
         if (product is not null && (int)product.Unit != value) product = null;
         if (!initializing) { Quantity = ""; Notice = "Единица изменилась. Укажите количество в новой единице."; }
         FindCandidates(); NotifyState();
@@ -76,7 +85,7 @@ public partial class AssistantIngredientRow : ObservableObject
     public void Assign(Product value)
     {
         var changedUnit = UnitIndex != (int)value.Unit;
-        product = value; Name = value.Name; UnitIndex = (int)value.Unit; PurposeIndex = (int)value.Purpose;
+        unitUnknown = false; product = value; Name = value.Name; UnitIndex = (int)value.Unit; PurposeIndex = (int)value.Purpose;
         if (changedUnit) { Quantity = ""; Notice = "Единица изменилась. Укажите количество в новой единице."; }
         else Notice = "";
         NotifyState();
@@ -97,7 +106,7 @@ public partial class AssistantIngredientRow : ObservableObject
         FindCandidates();
         if (product is null)
         {
-            var exact = catalog.SingleOrDefault(p => (int)p.Unit == UnitIndex && p.Name.Equals(Name.Trim(), StringComparison.OrdinalIgnoreCase));
+            var exact = catalog.SingleOrDefault(p => (unitUnknown || (int)p.Unit == UnitIndex) && p.Name.Equals(Name.Trim(), StringComparison.OrdinalIgnoreCase));
             if (exact is not null) Assign(exact);
         }
         NotifyState();
@@ -108,16 +117,26 @@ public partial class AssistantIngredientRow : ObservableObject
         if (catalog.Count > 0 && !string.IsNullOrWhiteSpace(Name))
         {
             var result = new ProductSearchIndex(catalog).Find(Name);
-            foreach (var p in result.Matches.Concat(result.Similar).Where(p => (int)p.Unit == UnitIndex).DistinctBy(p => p.Id).Take(10))
+            foreach (var p in result.Matches.Concat(result.Similar).Where(p => unitUnknown || (int)p.Unit == UnitIndex).DistinctBy(p => p.Id).Take(10))
                 Candidates.Add(new(p, p.Name + " · " + ShoppingCalculator.PriceBasis(p)));
         }
         OnPropertyChanged(nameof(HasCandidates));
     }
 }
 
-public partial class ShoppingAssistantViewModel(IShoppingStore store, IBudgetStore budget, ILocalShoppingModel model,
-    IShoppingAssistantNavigation navigation) : FinanceScreenViewModel
+public partial class ShoppingAssistantViewModel : FinanceScreenViewModel
 {
+    private readonly IShoppingStore store;
+    private readonly IBudgetStore budget;
+    private readonly ILocalShoppingModel model;
+    private readonly IShoppingAssistantNavigation navigation;
+    public CookingRecipeViewModel Recipe { get; }
+    public ShoppingAssistantViewModel(IShoppingStore store, IBudgetStore budget, ILocalShoppingModel model, IShoppingAssistantNavigation navigation)
+    {
+        this.store = store; this.budget = budget; this.model = model; this.navigation = navigation;
+        Recipe = new(model);
+        Recipe.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(Recipe.IsBusy)) OnPropertyChanged(nameof(CanSave)); };
+    }
     private ShoppingSnapshot snapshot = new(0, new());
     private BudgetState? budgetState;
     private CancellationTokenSource? operation;
@@ -137,7 +156,7 @@ public partial class ShoppingAssistantViewModel(IShoppingStore store, IBudgetSto
     [ObservableProperty] private bool isDownloading;
     public string ModelText => $"{model.Description.Name} · около {model.Description.Bytes / 1_000_000} МБ · на телефоне";
     public bool NeedsModel => !ModelReady;
-    public bool CanSave => HasDraft && !Saved && IsIdle;
+    public bool CanSave => HasDraft && !Saved && IsIdle && !Recipe.IsBusy;
     partial void OnModelReadyChanged(bool value) => OnPropertyChanged(nameof(NeedsModel));
     partial void OnHasDraftChanged(bool value) => OnPropertyChanged(nameof(CanSave));
     partial void OnSavedChanged(bool value) => OnPropertyChanged(nameof(CanSave));
@@ -145,12 +164,13 @@ public partial class ShoppingAssistantViewModel(IShoppingStore store, IBudgetSto
     {
         if (!Saved) return;
         foreach (var row in Rows) row.PropertyChanged -= RowChanged;
-        Rows.Clear(); Saved = false; HasDraft = false; listId = Guid.NewGuid().ToString(); Title = ""; EstimateText = "";
+        Rows.Clear(); Saved = false; HasDraft = false; listId = Guid.NewGuid().ToString(); Title = ""; EstimateText = ""; Recipe.SetSource("", [], null);
     }
-    public void CancelWork() => operation?.Cancel();
+    public void CancelWork() { operation?.Cancel(); Recipe.CancelWork(); }
     private async Task WorkAsync(Func<CancellationToken, Task> action)
     {
         if (IsBusy) return;
+        if (Recipe.IsBusy) { ErrorMessage = "Дождитесь рецепта или отмените его подготовку."; return; }
         IsBusy = true; OnPropertyChanged(nameof(CanSave)); ErrorMessage = "";
         using var cancellation = new CancellationTokenSource(); operation = cancellation;
         try { await action(cancellation.Token); }
@@ -187,42 +207,46 @@ public partial class ShoppingAssistantViewModel(IShoppingStore store, IBudgetSto
     [RelayCommand] private Task GenerateAsync() => WorkAsync(async token =>
     {
         if (!ModelReady) throw new FinanceValidationException("Сначала скачайте модель.");
-        if (!int.TryParse(Servings, NumberStyles.None, CultureInfo.InvariantCulture, out var count)) throw new FinanceValidationException("Введите число порций от 1 до 12.");
-        _ = ShoppingAssistantProtocol.Prompt(Request, count);
+        _ = GemmaShoppingProtocol.IngredientsPrompt(Request);
         Status = "Модель составляет предложение… Можно отменить.";
-        var output = await model.GenerateAsync(Request, count, token);
+        var output = await model.GenerateAsync(Request, 1, token);
         token.ThrowIfCancellationRequested();
-        var proposal = ShoppingAssistantProtocol.Parse(output);
+        var proposal = GemmaShoppingProtocol.ParseIngredients(output);
         snapshot = await store.ReadShoppingAsync(); budgetState = await budget.ReadBudgetAsync();
         foreach (var row in Rows) row.PropertyChanged -= RowChanged;
-        Rows.Clear(); Title = proposal.Title; listId = Guid.NewGuid().ToString(); Saved = false;
+        Rows.Clear(); Title = Request.Trim().Length > 80 ? Request.Trim()[..77] + "..." : Request.Trim(); listId = Guid.NewGuid().ToString(); Saved = false;
         updating = true;
         try
         {
-            foreach (var ingredient in proposal.Items)
+            foreach (var ingredient in proposal)
             {
                 var row = new AssistantIngredientRow(ingredient); row.UpdateCatalog(snapshot.Document.Products);
                 row.PropertyChanged += RowChanged; Rows.Add(row);
             }
         }
         finally { updating = false; }
-        HasDraft = Rows.Count > 0; Recalculate(); Status = "Это черновик. Проверьте товары и количества перед сохранением.";
+        HasDraft = Rows.Count > 0; Recipe.SetSource(Title, Rows.Select(r => r.Name), null); Recalculate(); Status = "Проверьте состав. Количества для расчёта стоимости укажите сами; рецепт можно получить отдельной кнопкой.";
     });
+    partial void OnTitleChanged(string value) => UpdateRecipeSource();
+    private void UpdateRecipeSource() => Recipe.SetSource(Title, Rows.Select(r => r.Name), Recipe.Value);
     private void RowChanged(object? sender, PropertyChangedEventArgs e) { if (!updating) Recalculate(); }
     private void Recalculate()
     {
+        UpdateRecipeSource();
         try
         {
-            long necessary = 0, joy = 0; int unknown = 0, unmatched = 0;
+            long necessary = 0, joy = 0; int unknown = 0, unmatched = 0, unquantified = 0;
             foreach (var row in Rows)
             {
+                if (row.IsAtHome) continue;
+                if (string.IsNullOrWhiteSpace(row.Quantity)) { unquantified++; continue; }
                 var quantity = ShoppingCalculator.ParseQuantity(row.Quantity);
                 var cost = row.Product is { } p ? ShoppingCalculator.Cost(p, quantity) : null;
                 if (row.Product is null) unmatched++;
                 if (cost is null) unknown++;
                 else if (row.PurposeIndex == 0) necessary = checked(necessary + cost.Value); else joy = checked(joy + cost.Value);
             }
-            EstimateText = $"Известная стоимость ≈ {Money.Format(checked(necessary + joy))}\nНеобходимое: ≈ {Money.Format(necessary)} · Для себя: ≈ {Money.Format(joy)}\nБез цены: {unknown} · нужно выбрать/добавить товар: {unmatched}";
+            EstimateText = $"Известная стоимость ≈ {Money.Format(checked(necessary + joy))}\nНеобходимое: ≈ {Money.Format(necessary)} · Для себя: ≈ {Money.Format(joy)}\nБез цены: {unknown} · нужно выбрать/добавить товар: {unmatched} · без количества: {unquantified}";
             if (budgetState is not null)
             {
                 var preview = ShoppingCalculator.Preview(new(necessary, joy, 0, 0), budgetState);
@@ -251,7 +275,7 @@ public partial class ShoppingAssistantViewModel(IShoppingStore store, IBudgetSto
         if (Saved) { await navigation.OpenSavedListAsync(listId); return; }
         if (!HasDraft || Rows.Any(r => r.Product is null)) throw new FinanceValidationException("Выберите или добавьте ненайденные товары в каталог либо удалите лишние позиции.");
         var list = new ShoppingList(listId, Title, Rows.Select(r => new ShoppingItem(r.Id, r.Product!.Id,
-            ShoppingCalculator.ParseQuantity(r.Quantity), (ShoppingPurpose)r.PurposeIndex)).ToList());
+            ShoppingCalculator.ParseQuantity(r.Quantity), (ShoppingPurpose)r.PurposeIndex, r.IsAtHome ? ShoppingItemState.AtHome : ShoppingItemState.Needed)).ToList(), Recipe.Value);
         snapshot = await store.SaveProposedListAsync(list, snapshot.Revision);
         Saved = true; Status = "Список сохранён.";
         await navigation.OpenSavedListAsync(listId);

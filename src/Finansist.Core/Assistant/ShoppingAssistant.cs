@@ -15,6 +15,7 @@ public interface ILocalShoppingModel
     Task DownloadAsync(IProgress<ModelTransfer> progress, CancellationToken token);
     Task DeleteAsync(CancellationToken token);
     Task<string> GenerateAsync(string request, int servings, CancellationToken token);
+    Task<string> GenerateRecipeAsync(string dish, IReadOnlyList<string> ingredients, CancellationToken token);
 }
 public sealed record SuggestedIngredient(string Name, decimal Quantity, ProductUnit Unit);
 public sealed record SuggestedShoppingList(string Title, IReadOnlyList<SuggestedIngredient> Items);

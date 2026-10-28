@@ -6,12 +6,20 @@ using Finansist.Core.Finance;
 namespace Finansist.Core.Assistant;
 
 // Only public model weights are downloaded. User requests never enter this service.
-public sealed class LocalModelFiles(HttpClient client, string directory, ModelDescription model)
+public sealed class LocalModelFiles(HttpClient client, string directory, ModelDescription model, bool replaceLegacyFiles = false)
 {
     private sealed record VerifiedFile(long Length, DateTime Modified);
     private VerifiedFile? verified;
-    public bool HasFiles => File.Exists(ModelPath) || File.Exists(PartPath);
-    public string ModelPath => Path.Combine(directory, "shopping-model.gguf");
+    public bool HasFiles => File.Exists(ModelPath) || File.Exists(PartPath) || (replaceLegacyFiles && (File.Exists(LegacyPath) || File.Exists(LegacyPath + ".part")));
+    public string ModelPath => Path.Combine(directory, $"shopping-model-{model.Sha256.ToLowerInvariant()}.gguf");
+    private string LegacyPath => Path.Combine(directory, "shopping-model.gguf");
+    // The user explicitly starts replacement or removal before this is called.
+    public void DeleteLegacyFiles()
+    {
+        if (!replaceLegacyFiles) return;
+        if (File.Exists(LegacyPath)) File.Delete(LegacyPath);
+        if (File.Exists(LegacyPath + ".part")) File.Delete(LegacyPath + ".part");
+    }
     public long PartialBytes => File.Exists(PartPath) ? Math.Min(model.Bytes, new FileInfo(PartPath).Length) : 0;
     private string PartPath => ModelPath + ".part";
     public async Task<bool> IsReadyAsync(CancellationToken token)
@@ -32,6 +40,8 @@ public sealed class LocalModelFiles(HttpClient client, string directory, ModelDe
     }
     public async Task DownloadAsync(IProgress<ModelTransfer> progress, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
+        DeleteLegacyFiles();
         Directory.CreateDirectory(directory);
         await using (var file = new FileStream(PartPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 81920, true))
         {
@@ -87,6 +97,7 @@ public sealed class LocalModelFiles(HttpClient client, string directory, ModelDe
     public void Delete()
     {
         verified = null;
+        DeleteLegacyFiles();
         if (File.Exists(ModelPath)) File.Delete(ModelPath);
         if (File.Exists(PartPath)) File.Delete(PartPath);
     }

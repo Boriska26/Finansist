@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Finansist.Core.Budgeting;
+using Finansist.Core.Assistant;
 using Finansist.Core.Finance;
 using Finansist.Core.Shopping;
 
@@ -45,7 +46,15 @@ public sealed partial class LocalStore
     public Task<ShoppingSnapshot> SaveListAsync(string id, string name, long revision) => RunAsync(db => ChangeShopping(db, revision, doc =>
     {
         var old = doc.Lists.SingleOrDefault(l => l.Id == id);
-        return doc with { Lists = [..doc.Lists.Where(l => l.Id != id), new(id, name.Trim(), old?.Items ?? [])] };
+        return doc with { Lists = [..doc.Lists.Where(l => l.Id != id), new(id, name.Trim(), old?.Items ?? [], old?.Recipe)] };
+    }));
+    public Task<ShoppingSnapshot> SaveCookingRecipeAsync(string listId, CookingRecipe recipe, long revision) => RunAsync(db => ChangeShopping(db, revision, doc =>
+    {
+        var list = doc.Lists.SingleOrDefault(l => l.Id == listId) ?? throw new FinanceValidationException("Список удалён.");
+        GemmaShoppingProtocol.ValidateRecipe(recipe);
+        var names = list.Items.Select(i => doc.Products.Single(p => p.Id == i.ProductId).Name);
+        BudgetCalculator.Require(recipe.Matches(list.Name, names), "Состав изменился. Обновите список и составьте рецепт заново.");
+        return doc with { Lists = doc.Lists.Select(l => l.Id == listId ? l with { Recipe = recipe } : l).ToList() };
     }));
     public Task<ShoppingSnapshot> DeleteListAsync(string id, long revision) => RunAsync(db => ChangeShopping(db, revision,
         doc => doc with { Lists = doc.Lists.Where(l => l.Id != id).ToList() }));

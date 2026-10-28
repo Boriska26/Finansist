@@ -7,22 +7,22 @@
   <CollectionView ItemsSource="{Binding Rows}" SelectionMode="None">
    <CollectionView.Header><VerticalStackLayout Padding="20" Spacing="12">
     <Label Text="Помощник покупок" Style="{StaticResource Title}" />
-    <Label Text="Эксперимент: предложение продуктов для блюда. Проверьте ингредиенты и количества перед покупкой." Style="{StaticResource Muted}" />
+    <Label Text="Эксперимент: предложение продуктов для блюда. Сначала проверьте состав. Количества для стоимости задаются вручную, рецепт — отдельной кнопкой." Style="{StaticResource Muted}" />
     <Border><VerticalStackLayout Spacing="10">
      <Label Text="{Binding ModelText}" FontAttributes="Bold" />
      <Label Text="Модель скачивается отдельно. Запросы обрабатываются на телефоне; финансовые записи помощник не изменяет." Style="{StaticResource Muted}" />
      <VerticalStackLayout IsEnabled="{Binding IsIdle}" Spacing="8">
       <Button Text="Скачать / продолжить загрузку модели" Command="{Binding DownloadCommand}" IsVisible="{Binding NeedsModel}" />
-      <Label Text="Для загрузки потребуется около 1,9 ГБ места. Удобнее скачать по Wi-Fi." IsVisible="{Binding NeedsModel}" Style="{StaticResource Muted}" />
+      <Label Text="В этой версии нужна Gemma (2,49 ГБ). При начале загрузки старые файлы модели будут удалены. Нужно около 2,6 ГБ свободного места. Удобнее Wi-Fi." IsVisible="{Binding NeedsModel}" Style="{StaticResource Muted}" />
       <Button Text="Удалить файлы модели" Command="{Binding DeleteModelCommand}" IsVisible="{Binding HasModelFiles}" Style="{StaticResource Secondary}" />
      </VerticalStackLayout>
+     <Label Text="Условия модели и лицензии" TextDecorations="Underline"><Label.GestureRecognizers><TapGestureRecognizer Tapped="OnModelTermsTapped" /></Label.GestureRecognizers></Label>
      <ProgressBar Progress="{Binding DownloadProgress}" IsVisible="{Binding IsDownloading}" />
     </VerticalStackLayout></Border>
     <VerticalStackLayout IsEnabled="{Binding IsIdle}" Spacing="10">
      <Label Text="Что хотите приготовить или купить?" FontAttributes="Bold" />
      <Editor Text="{Binding Request}" MaxLength="500" AutoSize="TextChanges" MinimumHeightRequest="100" Placeholder="Например: жаркое из курицы с картошкой на два дня" />
-     <Label Text="Порций" /><Entry Text="{Binding Servings}" Keyboard="Numeric" MaxLength="2" />
-     <Button Text="Составить список" Command="{Binding GenerateCommand}" IsEnabled="{Binding ModelReady}" />
+     <Button Text="Предложить ингредиенты" Command="{Binding GenerateCommand}" IsEnabled="{Binding ModelReady}" />
     </VerticalStackLayout>
     <Label Text="{Binding Status}" Style="{StaticResource Muted}" />
     <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />
@@ -31,13 +31,14 @@
     <VerticalStackLayout IsVisible="{Binding HasDraft}" IsEnabled="{Binding IsIdle}" Spacing="10">
      <Label Text="Черновик списка" Style="{StaticResource Section}" />
      <Entry Text="{Binding Title}" MaxLength="80" Placeholder="Название списка" />
-     <Label Text="Выберите подходящие товары. Ненайденные можно добавить в каталог прямо отсюда. Лишние и уже имеющиеся дома — удалите из черновика." Style="{StaticResource Muted}" />
+     <Label Text="Выберите подходящие товары. Ненайденные можно добавить в каталог прямо отсюда. Лишние удалите. Для имеющихся продуктов включите «Есть дома» — они останутся в рецепте." Style="{StaticResource Muted}" />
     </VerticalStackLayout>
    </VerticalStackLayout></CollectionView.Header>
    <CollectionView.ItemTemplate><DataTemplate x:DataType="vm:AssistantIngredientRow">
     <Border Padding="16" Margin="20,0,20,12" IsEnabled="{Binding ViewModel.IsIdle, Source={x:Reference Page}, x:DataType=views:ShoppingAssistantPage}"><VerticalStackLayout Spacing="10">
      <Entry Text="{Binding Name}" MaxLength="80" IsEnabled="{Binding NeedsProduct}" Placeholder="Название продукта" />
      <Grid ColumnDefinitions="*,*" ColumnSpacing="8"><Entry Text="{Binding Quantity}" Keyboard="Numeric" Placeholder="Количество" /><Picker Grid.Column="1" ItemsSource="{Binding Units}" SelectedIndex="{Binding UnitIndex}" /></Grid>
+     <HorizontalStackLayout Spacing="10"><Switch IsToggled="{Binding IsAtHome}" /><Label Text="Есть дома" VerticalOptions="Center" /></HorizontalStackLayout>
      <Label Text="{Binding Notice}" Style="{StaticResource Muted}" />
      <Label Text="{Binding PriceText}" Style="{StaticResource Muted}" /><Label Text="{Binding CostText}" FontAttributes="Bold" />
      <Picker ItemsSource="{Binding Candidates}" ItemDisplayBinding="{Binding Name, x:DataType=vm:ProductChoice}" SelectedItem="{Binding SelectedCandidate}" IsVisible="{Binding HasCandidates}" Title="Найдены варианты — выберите товар" />
@@ -48,9 +49,11 @@
     </VerticalStackLayout></Border>
    </DataTemplate></CollectionView.ItemTemplate>
    <CollectionView.Footer><VerticalStackLayout Padding="20" Spacing="10" IsVisible="{Binding HasDraft}">
+    <views:CookingRecipeView BindingContext="{Binding Recipe}" IsEnabled="{Binding IsIdle}" />
+    <Label Text="Количество нужно указать для каждой позиции перед сохранением. Пока оно не задано, оценка стоимости неполная." Style="{StaticResource Muted}" />
     <Label Text="{Binding EstimateText}" FontSize="17" />
     <Label Text="Это приблизительная стоимость по каталогу. Сохранение создаёт только список покупок. Цены и финансовые операции модель не придумывает и не записывает." Style="{StaticResource Muted}" />
-    <Label Text="Qwen — Apache 2.0 · llama.cpp — MIT. Модель и лицензии указаны в инструкции к версии." Style="{StaticResource Muted}" />
+    <Label Text="Gemma — условия Google Gemma · llama.cpp — MIT." Style="{StaticResource Muted}" />
    </VerticalStackLayout></CollectionView.Footer>
   </CollectionView>
   <Button Grid.Row="1" Text="Сохранить как список" Command="{Binding SaveCommand}" IsEnabled="{Binding CanSave}" Margin="16,10" />

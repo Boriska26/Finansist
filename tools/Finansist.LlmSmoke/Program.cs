@@ -5,6 +5,8 @@ using System.Text.Json;
 using Finansist.Core.Assistant;
 using Finansist.Core.Finance;
 
+if (args.Length == 3 && args[2] == "--gemma-recipes") { GemmaSmoke.Run(args[0], args[1]); return; }
+
 if (args.Length is < 2 or > 3 || (args.Length == 3 && args[2] != "--instruct-2507"))
     throw new ArgumentException("Arguments: native library path, model path, optional --instruct-2507. Only fixed synthetic prompts are used.");
 var instruct2507 = args.Length == 3;

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ xmlns:vm="clr-namespace:Finansist.Core.ViewModels;assembly=Finansist.Core" x:Class="Finansist.App.Views.CookingRecipeView" x:DataType="vm:CookingRecipeViewModel">
+ <VerticalStackLayout Spacing="10">
+  <Button Text="{Binding ButtonText}" Command="{Binding GenerateCommand}" IsEnabled="{Binding IsIdle}" Style="{StaticResource Secondary}" />
+  <ActivityIndicator IsVisible="{Binding IsBusy}" IsRunning="{Binding IsBusy}" />
+  <Button Text="Отменить подготовку рецепта" Command="{Binding CancelCommand}" IsVisible="{Binding IsBusy}" Style="{StaticResource Secondary}" />
+  <Label Text="{Binding Status}" Style="{StaticResource Muted}" />
+  <Label Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+  <Label Text="Состав изменился. Обновите рецепт, чтобы использовать текущие ингредиенты." IsVisible="{Binding IsStale}" Style="{StaticResource Muted}" />
+  <Border IsVisible="{Binding HasCurrentRecipe}"><VerticalStackLayout Spacing="12">
+   <Grid BackgroundColor="Transparent" MinimumHeightRequest="48" SemanticProperties.Description="Показать или свернуть рецепт">
+    <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding ToggleExpandedCommand}" /></Grid.GestureRecognizers>
+    <Label Text="Как приготовить  ↕" Style="{StaticResource Section}" VerticalOptions="Center" InputTransparent="True" />
+   </Grid>
+   <Label Text="{Binding Text}" IsVisible="{Binding IsExpanded}" />
+   <Label Text="Инструкция приблизительная. Проверьте состав и готовность продуктов." IsVisible="{Binding IsExpanded}" Style="{StaticResource Muted}" />
+  </VerticalStackLayout></Border>
+ </VerticalStackLayout>
+</ContentView>

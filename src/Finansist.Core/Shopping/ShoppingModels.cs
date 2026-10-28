@@ -1,5 +1,6 @@
 using System.Globalization;
 using Finansist.Core.Budgeting;
+using Finansist.Core.Assistant;
 using Finansist.Core.Finance;
 
 namespace Finansist.Core.Shopping;
@@ -9,7 +10,7 @@ public enum ShoppingPurpose { Necessary, Joy }
 public enum ShoppingItemState { Needed, Bought, AtHome }
 public sealed record Product(string Id, string Name, ProductUnit Unit, long? PriceMinor, DateOnly? PriceDate, ShoppingPurpose Purpose = ShoppingPurpose.Necessary, decimal PriceQuantity = 1m);
 public sealed record ShoppingItem(string Id, string ProductId, decimal Quantity, ShoppingPurpose Purpose, ShoppingItemState State = ShoppingItemState.Needed);
-public sealed record ShoppingList(string Id, string Name, List<ShoppingItem> Items);
+public sealed record ShoppingList(string Id, string Name, List<ShoppingItem> Items, CookingRecipe? Recipe = null);
 public sealed record ShoppingDocument
 {
     public List<Product> Products { get; init; } = [];
@@ -24,6 +25,7 @@ public interface IShoppingStore
     Task<ShoppingSnapshot> SaveListAsync(string id, string name, long revision);
     Task<ShoppingSnapshot> DeleteListAsync(string id, long revision);
     Task<ShoppingSnapshot> SaveProposedListAsync(ShoppingList list, long revision);
+    Task<ShoppingSnapshot> SaveCookingRecipeAsync(string listId, CookingRecipe recipe, long revision);
     Task<ShoppingSnapshot> SaveShoppingItemAsync(string listId, ShoppingItem item, Product? newProduct, long revision);
     Task<ShoppingSnapshot> DeleteShoppingItemAsync(string listId, string itemId, long revision);
 }
@@ -108,6 +110,7 @@ public static class ShoppingCalculator
         Require(doc.Lists.Select(l => l.Id).Distinct().Count() == doc.Lists.Count, "Список добавлен дважды.");
         foreach (var list in doc.Lists)
         {
+            if (list.Recipe is not null) GemmaShoppingProtocol.ValidateRecipe(list.Recipe);
             Id(list.Id); Require(list.Name.Trim().Length is >= 1 and <= 80, "Название списка — от 1 до 80 символов.");
             Require(list.Items.Select(i => i.Id).Distinct().Count() == list.Items.Count, "Позиция добавлена дважды.");
             foreach (var item in list.Items)

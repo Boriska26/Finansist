@@ -3,6 +3,7 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Finansist.Core.Budgeting;
+using Finansist.Core.Assistant;
 using Finansist.Core.Finance;
 using Finansist.Core.Shopping;
 
@@ -69,8 +70,18 @@ public partial class ShoppingViewModel(IShoppingStore store, IShoppingNavigation
     [RelayCommand] private Task EditProductAsync(ProductRow row) => RunAsync(() => navigation.EditProductAsync(row.Product.Id));
 }
 
-public partial class ShoppingListViewModel(IShoppingStore store, IBudgetStore budget, IShoppingNavigation navigation) : FinanceScreenViewModel
+public partial class ShoppingListViewModel : FinanceScreenViewModel
 {
+    private readonly IShoppingStore store;
+    private readonly IBudgetStore budget;
+    private readonly IShoppingNavigation navigation;
+    public CookingRecipeViewModel Recipe { get; }
+    public ShoppingListViewModel(IShoppingStore store, IBudgetStore budget, IShoppingNavigation navigation, ILocalShoppingModel model)
+    {
+        this.store = store; this.budget = budget; this.navigation = navigation;
+        Recipe = new(model, async recipe => { snapshot = await store.SaveCookingRecipeAsync(listId, recipe, snapshot.Revision); });
+    }
+    public void CancelWork() => Recipe.CancelWork();
     private string listId = "";
     private ShoppingSnapshot snapshot = new(0, new());
     public ObservableCollection<ShoppingItemRow> Items { get; } = [];
@@ -87,6 +98,7 @@ public partial class ShoppingListViewModel(IShoppingStore store, IBudgetStore bu
         snapshot = await store.ReadShoppingAsync();
         var list = snapshot.Document.Lists.SingleOrDefault(l => l.Id == listId) ?? throw new FinanceValidationException("Список удалён. Вернитесь к покупкам.");
         Name = list.Name;
+        Recipe.SetSource(list.Name, list.Items.Select(i => snapshot.Document.Products.Single(p => p.Id == i.ProductId).Name), list.Recipe);
         var products = snapshot.Document.Products.ToDictionary(p => p.Id);
         var rows = list.Items.Select(item => new ShoppingItemRow(item, products[item.ProductId])).ToArray();
         for (var i = 0; i < rows.Length; i++)

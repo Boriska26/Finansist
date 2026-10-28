@@ -181,7 +181,7 @@ public sealed class ShoppingTests : IDisposable
         var store = Store(); var list = Id(); var unknown = Product(null);
         var s = await store.SaveListAsync(list, "Синтетика", 0);
         await store.SaveShoppingItemAsync(list, new(Id(), unknown.Id, 1, ShoppingPurpose.Necessary), unknown, s.Revision);
-        var vm = new ShoppingListViewModel(store, store, new Navigation()); vm.Configure(list);
+        var vm = new ShoppingListViewModel(store, store, new Navigation(), new TestShoppingModel()); vm.Configure(list);
         await vm.RefreshCommand.ExecuteAsync(null);
         Assert.False(vm.HasError); Assert.Contains("Итог неполный", vm.TotalText);
         Assert.Contains("ещё не распределён", vm.ForecastText);
@@ -290,7 +290,7 @@ public sealed class ShoppingTests : IDisposable
         var beforeFinance = JsonSerializer.Serialize(await store.ReadBudgetAsync());
         var before = ShoppingCalculator.Estimate(s.Document, s.Document.Lists[0]);
         var beforePreview = ShoppingCalculator.Preview(before, Budget());
-        var vm = new ShoppingListViewModel(store, store, new Navigation()); vm.Configure(list);
+        var vm = new ShoppingListViewModel(store, store, new Navigation(), new TestShoppingModel()); vm.Configure(list);
         await vm.RefreshCommand.ExecuteAsync(null);
         var unchangedRow = vm.Items[1]; var total = vm.TotalText;
         await vm.ToggleItemCommand.ExecuteAsync(vm.Items[0]);

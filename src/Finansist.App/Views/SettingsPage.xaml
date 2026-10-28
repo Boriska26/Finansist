@@ -21,7 +21,7 @@
    </VerticalStackLayout>
    <Label Text="Выбор сохраняется автоматически в SQLite." Style="{StaticResource Muted}" />
   </VerticalStackLayout></Border>
-  <Label Text="Финансист · 0.8.1
+  <Label Text="Финансист · 0.8.2
 Этап 8 · эксперимент" Style="{StaticResource Muted}" HorizontalTextAlignment="Center" />
  </VerticalStackLayout></ScrollView>
 </ContentPage>

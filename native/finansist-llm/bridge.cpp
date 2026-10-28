@@ -15,8 +15,8 @@ static bool loading(float, void * data) { return !aborted(data); }
 
 // One bounded request per call. All model/context/sampler memory is released on return.
 // Codes: 0 success, 1 cancellation, 2 model failure, 3 execution failure, 4 incomplete output.
-extern "C" __attribute__((visibility("default"))) int fin_generate(
- const char * path, const char * prompt, const char * grammar, cancel_fn cancel, char * output, int capacity) noexcept {
+static int generate(
+ const char * path, const char * prompt, const char * grammar, cancel_fn cancel, char * output, int capacity, float temperature, int top_k, float top_p, int max_tokens) noexcept {
  try {
   std::call_once(initialized, [] { llama_log_set(quiet, nullptr); ggml_log_set(quiet, nullptr); llama_backend_init(); });
   if (!path || !prompt || !grammar || !output || capacity < 2) return 3;
@@ -54,15 +54,17 @@ extern "C" __attribute__((visibility("default"))) int fin_generate(
    if (llama_process(context.get(), LLAMA_PROCESS_TYPE_DECODE, batch.get()) != 0) return aborted(&cancellation_data) ? 1 : 3;
   }
   std::unique_ptr<llama_sampler, decltype(&llama_sampler_free)> sampler(llama_sampler_chain_init(llama_sampler_chain_default_params()), llama_sampler_free);
-  auto * constrained = llama_sampler_init_grammar(vocab, grammar, "root");
-  if (!constrained) return 3;
-  llama_sampler_chain_add(sampler.get(), constrained);
-  llama_sampler_chain_add(sampler.get(), llama_sampler_init_top_k(20));
-  llama_sampler_chain_add(sampler.get(), llama_sampler_init_top_p(.9f, 1));
-  llama_sampler_chain_add(sampler.get(), llama_sampler_init_temp(.4f));
+  if (grammar[0]) {
+   auto * constrained = llama_sampler_init_grammar(vocab, grammar, "root");
+   if (!constrained) return 3;
+   llama_sampler_chain_add(sampler.get(), constrained);
+  }
+  llama_sampler_chain_add(sampler.get(), llama_sampler_init_top_k(top_k));
+  llama_sampler_chain_add(sampler.get(), llama_sampler_init_top_p(top_p, 1));
+  llama_sampler_chain_add(sampler.get(), llama_sampler_init_temp(temperature));
   llama_sampler_chain_add(sampler.get(), llama_sampler_init_dist(1337));
   std::string result;
-  for (int i = 0; i < 2048; ++i) {
+  for (int i = 0; i < max_tokens; ++i) {
    if (aborted(&cancellation_data)) return 1;
    llama_token token = llama_sampler_sample(sampler.get(), context.get(), -1);
    if (llama_vocab_is_eog(vocab, token)) {
@@ -81,4 +83,15 @@ extern "C" __attribute__((visibility("default"))) int fin_generate(
   }
   return 4;
  } catch (...) { return 3; }
+}
+
+// Preserve the old ABI for the reproducible Qwen comparisons.
+extern "C" __attribute__((visibility("default"))) int fin_generate(
+ const char * path, const char * prompt, const char * grammar, cancel_fn cancel, char * output, int capacity) noexcept {
+ return generate(path, prompt, grammar, cancel, output, capacity, .4f, 20, .9f, 2048);
+}
+extern "C" __attribute__((visibility("default"))) int fin_generate_gemma(
+ const char * path, const char * prompt, cancel_fn cancel, char * output, int capacity, int max_tokens) noexcept {
+ if (max_tokens < 1 || max_tokens > 1024) return 3;
+ return generate(path, prompt, "", cancel, output, capacity, 1.f, 64, .95f, max_tokens);
 }

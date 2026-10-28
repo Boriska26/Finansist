@@ -67,7 +67,7 @@ public sealed class AssistantTests : IDisposable
         await vm.RefreshCommand.ExecuteAsync(null); vm.Request = "Синтетический ужин";
         await vm.GenerateCommand.ExecuteAsync(null);
         Assert.True(vm.HasDraft); Assert.Equal(product.Id, Assert.Single(vm.Rows).Product?.Id);
-        Assert.Equal("0,5", vm.Rows[0].Quantity); Assert.Empty((await store.ReadShoppingAsync()).Document.Lists);
+        Assert.Equal("", vm.Rows[0].Quantity); vm.Rows[0].Quantity = "0,5"; Assert.Empty((await store.ReadShoppingAsync()).Document.Lists);
         await vm.SaveCommand.ExecuteAsync(null);
         Assert.True(vm.Saved); Assert.Single((await store.ReadShoppingAsync()).Document.Lists);
         await vm.SaveCommand.ExecuteAsync(null); Assert.Single((await store.ReadShoppingAsync()).Document.Lists);
@@ -80,15 +80,16 @@ public sealed class AssistantTests : IDisposable
         var store = Store(); var nav = new Navigation();
         var vm = new ShoppingAssistantViewModel(store, store, new Model(), nav);
         await vm.RefreshCommand.ExecuteAsync(null); vm.Request = "Тестовый ужин"; await vm.GenerateCommand.ExecuteAsync(null);
-        var row = Assert.Single(vm.Rows); Assert.True(row.NeedsProduct);
+        var row = Assert.Single(vm.Rows); Assert.True(row.NeedsProduct); row.Quantity = "0,5";
         await vm.SaveCommand.ExecuteAsync(null); Assert.True(vm.HasError); Assert.Empty((await store.ReadShoppingAsync()).Document.Lists);
+        row.UnitIndex = (int)ProductUnit.Kilogram;
         await vm.AddProductCommand.ExecuteAsync(row);
         Assert.Equal("Картошка", nav.AddedName); Assert.Equal(ProductUnit.Kilogram, nav.AddedUnit); Assert.NotNull(nav.AddedCallback);
         var editor = new ProductEditorViewModel(store, nav);
         editor.ConfigureSuggestion(nav.AddedName!, nav.AddedUnit, nav.AddedCallback!);
         await editor.LoadCommand.ExecuteAsync(null); editor.Price = "39"; await editor.SaveCommand.ExecuteAsync(null);
         Assert.False(editor.HasError); Assert.True(row.HasProduct);
-        await vm.RefreshCommand.ExecuteAsync(null); Assert.Contains("19,50", vm.EstimateText);
+        await vm.RefreshCommand.ExecuteAsync(null); row.Quantity = "0,5"; Assert.Contains("19,50", vm.EstimateText);
         await vm.SaveCommand.ExecuteAsync(null); Assert.False(vm.HasError);
         Assert.Single((await store.ReadShoppingAsync()).Document.Products); Assert.Single((await store.ReadShoppingAsync()).Document.Lists);
         Assert.Empty((await store.ReadFinanceAsync()).Operations);
@@ -110,7 +111,7 @@ public sealed class AssistantTests : IDisposable
     public void CatalogUnitChangesAndManualUnitChangesRequireFreshQuantityButPreservePurpose()
     {
         var product = new Product(Guid.NewGuid().ToString(), "Тестовый продукт", ProductUnit.Kilogram, 100, DateOnly.FromDateTime(DateTime.Today));
-        var row = new AssistantIngredientRow(new("Тестовый продукт", .5m, ProductUnit.Kilogram));
+        var row = new AssistantIngredientRow(new SuggestedIngredient("Тестовый продукт", .5m, ProductUnit.Kilogram));
         row.UpdateCatalog([product]); row.PurposeIndex = 1;
         row.UpdateCatalog([product with { Unit = ProductUnit.Piece }]);
         Assert.Equal((int)ProductUnit.Piece, row.UnitIndex); Assert.Equal("", row.Quantity); Assert.Equal(1, row.PurposeIndex);
@@ -192,6 +193,26 @@ public sealed class AssistantTests : IDisposable
         await files.DownloadAsync(new ImmediateProgress(), default); Assert.True(await files.IsReadyAsync(default));
         Assert.Equal(data, await File.ReadAllBytesAsync(files.ModelPath));
     }
+    [Fact]
+    public async Task ReplacingModelDoesNotReuseOldPartialFileOrTouchUserData()
+    {
+        var data = Encoding.UTF8.GetBytes("new synthetic weights"); var server = new Server(data);
+        var files = new LocalModelFiles(new HttpClient(server), directory,
+            new("Новая", "https://synthetic.test/new", data.Length, Convert.ToHexString(SHA256.HashData(data))), replaceLegacyFiles: true);
+        var old = Path.Combine(directory, "shopping-model.gguf");
+        await File.WriteAllTextAsync(old, "old synthetic model");
+        await File.WriteAllTextAsync(old + ".part", "old synthetic partial");
+        await File.WriteAllTextAsync(Db, "synthetic unrelated user data");
+        Assert.True(files.HasFiles); Assert.False(await files.IsReadyAsync(default)); Assert.Equal(0, files.PartialBytes);
+        using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => files.DownloadAsync(new ImmediateProgress(), cancelled.Token));
+        Assert.True(File.Exists(old));
+        await files.DownloadAsync(new ImmediateProgress(), default);
+        Assert.Equal(0, server.Starts[0]); Assert.True(await files.IsReadyAsync(default));
+        Assert.False(File.Exists(old)); Assert.False(File.Exists(old + ".part"));
+        Assert.Equal("synthetic unrelated user data", await File.ReadAllTextAsync(Db));
+        files.Delete(); Assert.False(files.HasFiles); Assert.True(File.Exists(Db));
+    }
     private sealed class ImmediateProgress : IProgress<ModelTransfer> { public void Report(ModelTransfer value) { } }
     private sealed class Server(byte[] data) : HttpMessageHandler
     {
@@ -212,12 +233,13 @@ public sealed class AssistantTests : IDisposable
     {
         public ModelDescription Description => new("Тестовая модель", "https://synthetic.test/model", 100, "test");
         public bool HasFiles { get; private set; } = true;
-        public string OutputText { get; set; } = Output;
+        public string OutputText { get; set; } = "Картошка";
         public bool WaitForCancel { get; set; }
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public Task<bool> IsReadyAsync(CancellationToken token) => Task.FromResult(HasFiles);
         public Task DownloadAsync(IProgress<ModelTransfer> progress, CancellationToken token) { HasFiles = true; return Task.CompletedTask; }
         public Task DeleteAsync(CancellationToken token) { HasFiles = false; return Task.CompletedTask; }
+        public Task<string> GenerateRecipeAsync(string dish, IReadOnlyList<string> ingredients, CancellationToken token) => Task.FromResult("1. Подготовьте продукты.\n2. Приготовьте блюдо до готовности.");
         public async Task<string> GenerateAsync(string request, int servings, CancellationToken token)
         {
             if (WaitForCancel) { Started.TrySetResult(); await Task.Delay(Timeout.Infinite, token); }
